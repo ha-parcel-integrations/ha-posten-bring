@@ -1,0 +1,32 @@
+# Notify exactly once per parcel when Posten Bring says it's ready for
+# collection at a pickup point. Filters on the normalised
+# ParcelStatus.AT_PICKUP_POINT value so this is independent of the raw
+# Posten Bring status strings.
+#
+# Posten Bring's own item-status vocabulary has no "out for delivery" state
+# (see the README's status table) — pickup-point collection is the closest
+# equivalent "act on this today" moment for this carrier.
+
+alias: "Posten Bring: parcel ready for pickup"
+description: Notify when a Posten Bring parcel is ready for collection.
+mode: queued
+max: 10
+
+triggers:
+  - trigger: event
+    event_type: posten_bring_parcel_status_changed
+    event_data:
+      new_status: at_pickup_point
+
+actions:
+  - action: notify.mobile_app
+    data:
+      title: "Parcel ready for pickup"
+      message: >-
+        {{ trigger.event.data.sender or trigger.event.data.barcode }} is
+        ready to collect
+        {% if trigger.event.data.pickup_point %}
+        at {{ trigger.event.data.pickup_point }}
+        {% endif %}
+      data:
+        clickAction: "{{ trigger.event.data.url }}"

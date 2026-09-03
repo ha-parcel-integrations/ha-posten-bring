@@ -1,0 +1,132 @@
+{
+  "title": "Posten Bring",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Posten Bring",
+        "description": "Choose which brand's login page to use. Either brand's account works for tracking parcels in Norway, Sweden and Denmark alike — this only picks which login page opens next. Do not add this integration a second time with the other brand for the same account: both read the same inbox, so you'd see every parcel twice.",
+        "data": {
+          "brand": "Brand"
+        }
+      },
+      "login": {
+        "title": "Sign in to {brand}",
+        "description": "Open this URL in a browser and sign in with your {brand} account:\n\n{authorize_url}\n\nYour browser cannot open the address it is redirected to afterwards. Copy that complete address from your browser's address bar, history or developer tools and paste it below — see [step-by-step instructions]({docs_url}) if you're not sure how.",
+        "data": {
+          "redirect_url": "Redirect URL"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Posten Bring sign-in expired",
+        "description": "Posten Bring no longer accepts the stored sign-in. Open this URL, sign in again, and paste the redirect URL below (see [step-by-step instructions]({docs_url}) if you're not sure how to find it):\n\n{authorize_url}",
+        "data": {
+          "redirect_url": "Redirect URL"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Posten Bring rejected the sign-in.",
+      "invalid_redirect": "That doesn't look like a valid redirect URL — make sure you copied the complete address, including the code and state parameters.",
+      "cannot_connect": "Could not reach Posten Bring. Please try again."
+    },
+    "abort": {
+      "reauth_successful": "Posten Bring was reauthenticated successfully."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Posten Bring options",
+        "sections": {
+          "delivered": {
+            "name": "Delivered parcels",
+            "data": {
+              "delivered_filter_type": "Filter by",
+              "delivered_filter_amount": "Amount"
+            },
+            "data_description": {
+              "delivered_filter_type": "Show delivered parcels from the last X days, or limit to the X most recent.",
+              "delivered_filter_amount": "Number of days or parcels to show."
+            }
+          },
+          "history": {
+            "name": "Parcel history",
+            "data": {
+              "include_history": "Include status history"
+            },
+            "data_description": {
+              "include_history": "Add a per-parcel history attribute listing each status update (timestamp, raw event text). Off by default."
+            }
+          }
+        }
+      }
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "posten": "Posten",
+        "bring": "Bring"
+      }
+    },
+    "delivered_filter_type": {
+      "options": {
+        "days": "Days",
+        "parcels": "Number of parcels"
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "parcel_registered": "A parcel was registered",
+      "parcel_status_changed": "A parcel's status changed",
+      "parcel_delivered": "A parcel was delivered",
+      "parcel_delivery_time_changed": "A parcel's expected delivery time changed",
+      "outgoing_parcel_status_changed": "An outgoing parcel's status changed",
+      "outgoing_parcel_delivered": "An outgoing parcel was delivered"
+    }
+  },
+  "entity": {
+    "button": {
+      "refresh": {
+        "name": "Refresh"
+      }
+    },
+    "calendar": {
+      "deliveries": {
+        "name": "Deliveries"
+      }
+    },
+    "sensor": {
+      "incoming_parcels": {
+        "name": "Incoming parcels",
+        "unit_of_measurement": "parcels"
+      },
+      "next_delivery": {
+        "name": "Next delivery"
+      },
+      "delivered_parcels": {
+        "name": "Delivered parcels",
+        "unit_of_measurement": "parcels"
+      },
+      "outgoing_parcels": {
+        "name": "Outgoing parcels",
+        "unit_of_measurement": "parcels"
+      },
+      "outgoing_delivered_parcels": {
+        "name": "Outgoing delivered parcels",
+        "unit_of_measurement": "parcels"
+      },
+      "last_update": {
+        "name": "Last successful update"
+      },
+      "parcel": {
+        "name": "Parcel {barcode}"
+      },
+      "awaiting_pickup": {
+        "name": "Awaiting pickup",
+        "unit_of_measurement": "parcels"
+      }
+    }
+  }
+}
