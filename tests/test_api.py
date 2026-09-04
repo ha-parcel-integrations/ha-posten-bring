@@ -169,25 +169,53 @@ async def test_get_access_token_without_refresh_token_raises():
         await oauth.async_get_access_token()
 
 
-async def test_refresh_token_rotation_is_tracked_and_persisted_once():
+async def test_refresh_token_rotation_reaches_the_token_updater():
     session = _session_returning(
         (200, {"access_token": "AT2", "refresh_token": "RT-NEW", "expires_in": 3600})
     )
-    oauth = PostenBringSession(session, brand="bring", refresh_token="RT-OLD")
+    updater = MagicMock()
+    oauth = PostenBringSession(
+        session, brand="bring", refresh_token="RT-OLD", token_updater=updater
+    )
     await oauth.async_get_access_token()
     assert oauth.refresh_token == "RT-NEW"
-    assert oauth.pop_refresh_token_changed() is True
-    # Popping clears the flag.
-    assert oauth.pop_refresh_token_changed() is False
+    updater.assert_called_once_with("RT-NEW")
 
 
-async def test_refresh_without_rotation_does_not_flag_a_change():
+async def test_rotation_is_handed_over_before_the_call_it_was_refreshed_for():
+    """The rotated token must be persisted even if everything after it fails.
+
+    The server burns the token that was sent, so persisting only after a
+    successful inbox call would leave the entry holding a dead credential
+    whenever anything in between failed — and cost the user a full reauth on
+    the next restart.
+    """
+    session = _session_returning(
+        (200, {"access_token": "AT2", "refresh_token": "RT-NEW", "expires_in": 3600}),
+        (500, {}),
+    )
+    updater = MagicMock()
+    oauth = PostenBringSession(
+        session, brand="bring", refresh_token="RT-OLD", token_updater=updater
+    )
+    client = PostenBringApiClient(session, oauth)
+
+    with pytest.raises(PostenBringApiError):
+        await client.async_get_parcels()
+
+    updater.assert_called_once_with("RT-NEW")
+
+
+async def test_refresh_without_rotation_does_not_call_the_token_updater():
     session = _session_returning(
         (200, {"access_token": "AT2", "refresh_token": "RT-OLD", "expires_in": 3600})
     )
-    oauth = PostenBringSession(session, brand="bring", refresh_token="RT-OLD")
+    updater = MagicMock()
+    oauth = PostenBringSession(
+        session, brand="bring", refresh_token="RT-OLD", token_updater=updater
+    )
     await oauth.async_get_access_token()
-    assert oauth.pop_refresh_token_changed() is False
+    updater.assert_not_called()
 
 
 async def test_handle_unauthorized_forces_one_refresh():
@@ -295,11 +323,19 @@ async def test_get_parcels_refreshes_once_on_401_then_succeeds():
     oauth.async_handle_unauthorized.assert_awaited_once()
 
 
-async def test_get_parcels_raises_auth_error_when_retry_still_401():
-    session = _session_returning((401, {}), (401, {}))
+@pytest.mark.parametrize("status", [401, 403])
+async def test_inbox_refusing_a_freshly_refreshed_token_is_not_an_auth_error(status):
+    """The refresh succeeded, so the credential is fine — the inbox is not.
+
+    Raising an auth error here would push the user through the browser-paste
+    reauth over a server-side refusal they cannot fix by signing in again.
+    """
+    session = _session_returning((status, {}), (status, {}))
     client = PostenBringApiClient(session, _oauth_stub())
-    with pytest.raises(PostenBringAuthError):
+    with pytest.raises(PostenBringApiError) as excinfo:
         await client.async_get_parcels()
+    assert not isinstance(excinfo.value, PostenBringAuthError)
+    assert excinfo.value.status_code == status
 
 
 async def test_get_parcels_raises_on_429_with_retry_after_header():
@@ -317,13 +353,6 @@ async def test_get_parcels_raises_on_429_without_retry_after_header():
     with pytest.raises(PostenBringApiError) as excinfo:
         await client.async_get_parcels()
     assert excinfo.value.retry_after is None
-
-
-async def test_get_parcels_raises_on_403():
-    session = _session_returning((403, {}), (403, {}))
-    client = PostenBringApiClient(session, _oauth_stub())
-    with pytest.raises(PostenBringAuthError):
-        await client.async_get_parcels()
 
 
 async def test_get_parcels_raises_on_error_status():

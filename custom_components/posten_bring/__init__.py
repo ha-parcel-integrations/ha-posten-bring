@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import PostenBringApiClient, PostenBringSession
@@ -38,13 +38,28 @@ async def async_setup_entry(
     session = aiohttp.ClientSession(
         connector=async_get_clientsession(hass).connector, connector_owner=False
     )
+
+    @callback
+    def persist_refresh_token(refresh_token: str) -> None:
+        """Store a rotated refresh token the moment the session receives it.
+
+        Every refresh burns the token that was sent, so this cannot wait for
+        the poll it was refreshed for to succeed: a failure in between would
+        leave the entry holding a dead token and turn the next restart into a
+        full reauth.
+        """
+        hass.config_entries.async_update_entry(
+            entry, data={**entry.data, CONF_REFRESH_TOKEN: refresh_token}
+        )
+
     oauth_session = PostenBringSession(
         session,
         brand=entry.data[CONF_BRAND],
         refresh_token=entry.data[CONF_REFRESH_TOKEN],
+        token_updater=persist_refresh_token,
     )
     client = PostenBringApiClient(session, oauth_session)
-    coordinator = PostenBringCoordinator(hass, client, entry, oauth_session=oauth_session)
+    coordinator = PostenBringCoordinator(hass, client, entry)
 
     try:
         # Fetch initial data here, before forwarding to platforms. Raising

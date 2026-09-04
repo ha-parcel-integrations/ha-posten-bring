@@ -95,6 +95,13 @@ TOKEN_REFRESH_MARGIN_SECONDS = 300
 # Fallback lifetime when a token response carries no `expires_in` at all.
 DEFAULT_TOKEN_LIFETIME_SECONDS = 3600
 
+# How many consecutive polls may be refused by the inbox with 401/403 — each
+# one *after* a token refresh the identity provider accepted — before we stop
+# calling it a server-side problem and ask the user to sign in again. Anything
+# below this is retried, because the browser-paste reauth is expensive enough
+# that a transient 403 must not trigger it.
+MAX_UNAUTHORIZED_POLLS = 3
+
 # ---------------------------------------------------------------------------
 # Inbox — POST api.posten.no/parcel-api/v1/parcel, bearer auth, incremental
 # sync (lastUpdated + exclude, page while remainingCount > 0).

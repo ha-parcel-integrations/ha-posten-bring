@@ -18,19 +18,14 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .api import (
-    PostenBringApiClient,
-    PostenBringApiError,
-    PostenBringAuthError,
-    PostenBringSession,
-)
+from .api import PostenBringApiClient, PostenBringApiError, PostenBringAuthError
 from .const import (
     CONF_INCLUDE_HISTORY,
-    CONF_REFRESH_TOKEN,
     DEFAULT_INCLUDE_HISTORY,
     DOMAIN,
     HOT_INTERVAL_MINUTES,
     HOT_LOOKAHEAD_HOURS,
+    MAX_UNAUTHORIZED_POLLS,
     MID_INTERVAL_MINUTES,
     QUIET_WINDOW_END_HOUR,
     QUIET_WINDOW_START_HOUR,
@@ -126,8 +121,6 @@ class PostenBringCoordinator(DataUpdateCoordinator[list[dict]]):
         hass: HomeAssistant,
         client: PostenBringApiClient,
         entry: ConfigEntry,
-        *,
-        oauth_session: PostenBringSession,
     ) -> None:
         """Initialise the coordinator."""
         super().__init__(
@@ -138,11 +131,11 @@ class PostenBringCoordinator(DataUpdateCoordinator[list[dict]]):
             update_interval=timedelta(minutes=HOT_INTERVAL_MINUTES),
         )
         self._client = client
-        self._oauth_session = oauth_session
         self.delivered: list[dict] = []
         self.outgoing: list[dict] = []
         self.delivered_outgoing: list[dict] = []
         self._consecutive_429 = 0
+        self._consecutive_unauthorized = 0
         self._current_tier_minutes: int | None = None
         self._known_state: dict[str, ParcelStatus] | None = None
         self._known_delivery_times: (
@@ -188,6 +181,20 @@ class PostenBringCoordinator(DataUpdateCoordinator[list[dict]]):
         except PostenBringAuthError as err:
             raise ConfigEntryAuthFailed("Posten Bring session expired") from err
         except PostenBringApiError as err:
+            if err.status_code in (401, 403):
+                # api.py only gets here with a token the identity provider
+                # just accepted, so the credential is fine and one of these
+                # is a server-side refusal, not a logout. Only a run of them
+                # is worth the user's browser-paste reauth.
+                self._consecutive_unauthorized += 1
+                if self._consecutive_unauthorized >= MAX_UNAUTHORIZED_POLLS:
+                    raise ConfigEntryAuthFailed(
+                        "Posten Bring kept refusing a freshly refreshed token"
+                    ) from err
+                raise UpdateFailed(
+                    f"Posten Bring refused a freshly refreshed token "
+                    f"(HTTP {err.status_code})"
+                ) from err
             if err.status_code != 429:
                 raise
             self._consecutive_429 += 1
@@ -198,17 +205,7 @@ class PostenBringCoordinator(DataUpdateCoordinator[list[dict]]):
                 "Posten Bring rate-limited (429)", retry_after=retry_after
             ) from err
         self._consecutive_429 = 0
-
-        # A rotated refresh token must be persisted immediately, or a
-        # restart would resume with a stale one.
-        if self._oauth_session.pop_refresh_token_changed():
-            self.hass.config_entries.async_update_entry(
-                self.config_entry,
-                data={
-                    **self.config_entry.data,
-                    CONF_REFRESH_TOKEN: self._oauth_session.refresh_token,
-                },
-            )
+        self._consecutive_unauthorized = 0
 
         include_history = self._include_history
         incoming_raw = [r for r in raws if parcel_direction(r) != DIRECTION_OUTGOING]

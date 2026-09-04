@@ -5,13 +5,13 @@ integration checks that ``_async_update_data`` wires them up: the account
 never fully stops, and a 429 triggers the backoff.
 """
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.posten_bring.api import PostenBringApiError, PostenBringSession
+from custom_components.posten_bring.api import PostenBringApiError
 from custom_components.posten_bring.const import (
     CONF_BRAND,
     CONF_DELIVERED_FILTER_AMOUNT,
@@ -156,15 +156,8 @@ def _entry() -> MockConfigEntry:
     )
 
 
-def _oauth() -> MagicMock:
-    oauth = MagicMock(spec=PostenBringSession)
-    oauth.pop_refresh_token_changed = MagicMock(return_value=False)
-    oauth.refresh_token = "RT-OLD"
-    return oauth
-
-
 def _coordinator(hass, entry, client) -> PostenBringCoordinator:
-    return PostenBringCoordinator(hass, client, entry, oauth_session=_oauth())
+    return PostenBringCoordinator(hass, client, entry)
 
 
 async def test_update_interval_never_none_with_an_empty_account(hass):

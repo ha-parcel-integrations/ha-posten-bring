@@ -4,19 +4,22 @@ Two responsibilities, kept apart:
 
 * :class:`PostenBringSession` owns the whole token lifecycle — building the
   one-time browser authorization URL, exchanging the pasted-back redirect for
-  tokens, and refreshing before expiry. Every token-endpoint call is
-  Basic-authenticated with the brand's embedded ``client_id``/``client_secret``
-  pair (const.py's ``BRANDS``) — the live gate confirmed this client is not
-  public and PKCE does not change that, so this module never builds or sends
-  a ``code_verifier``.
+  tokens, refreshing before expiry, and handing a rotated refresh token
+  straight to its ``token_updater`` so it is persisted the moment it exists.
+  Every token-endpoint call is Basic-authenticated with the brand's embedded
+  ``client_id``/``client_secret`` pair (const.py's ``BRANDS``) — the live gate
+  confirmed this client is not public and PKCE does not change that, so this
+  module never builds or sends a ``code_verifier``.
 * :class:`PostenBringApiClient` owns the read-only inbox call: a JSON ``POST``
   with a bearer token, paging while ``remainingCount > 0`` and deduplicating
   by ``parcelNumber``.
 
-Both raise :class:`~.const.PostenBringAuthError` only when the credential
-itself was rejected (a bad/expired refresh token, or the app client itself
-being retired) — never for a transient outage, so the caller does not push
-users into a reauth flow they cannot complete.
+Only the token endpoint can raise :class:`~.const.PostenBringAuthError`, and
+only when the credential itself was rejected (a bad/expired refresh token, or
+the app client itself being retired). A 401/403 from the *inbox* that survives
+a successful refresh is a :class:`~.const.PostenBringApiError`: the refresh
+having succeeded proves the credential is fine, so pushing the user into a
+reauth flow there would cost them the browser paste for nothing.
 """
 from __future__ import annotations
 
@@ -24,6 +27,7 @@ import base64
 import json
 import logging
 import secrets
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -109,17 +113,21 @@ class PostenBringSession:
         *,
         brand: str,
         refresh_token: str | None = None,
+        token_updater: Callable[[str], None] | None = None,
     ) -> None:
-        """Initialise with an optional already-persisted refresh token."""
+        """Initialise with an optional already-persisted refresh token.
+
+        ``token_updater`` is called — synchronously, from the event loop —
+        with every rotated refresh token, before the caller gets to use the
+        access token that came with it. The config flow leaves it unset: it
+        persists the exchange result itself.
+        """
         self._session = session
         self._brand = brand
         self.refresh_token = refresh_token
+        self._token_updater = token_updater
         self._access_token: str | None = None
         self._expires_at: datetime | None = None
-        # Set when a refresh response carries a *different* refresh token
-        # than the one sent — persisted by the coordinator/config flow via
-        # pop_refresh_token_changed().
-        self._refresh_token_changed = False
 
     @property
     def brand(self) -> str:
@@ -136,12 +144,6 @@ class PostenBringSession:
         if self._access_token is None or self._expires_at is None:
             return True
         return datetime.now(timezone.utc) >= self._expires_at - _TOKEN_REFRESH_MARGIN
-
-    def pop_refresh_token_changed(self) -> bool:
-        """Return whether the refresh token rotated, and clear the flag."""
-        value = self._refresh_token_changed
-        self._refresh_token_changed = False
-        return value
 
     def _basic_auth_header(self) -> str:
         """Build the ``Authorization: Basic …`` header value for this brand.
@@ -210,8 +212,14 @@ class PostenBringSession:
         self._store_tokens(payload)
         new_refresh_token = payload.get("refresh_token")
         if new_refresh_token and new_refresh_token != self.refresh_token:
+            # The server rotates on every refresh and burns the token we just
+            # sent. Persist here, not after the call this refresh was for —
+            # anything that fails in between would otherwise leave the entry
+            # holding a token that no longer works, and the next restart
+            # would demand a full reauth.
             self.refresh_token = new_refresh_token
-            self._refresh_token_changed = True
+            if self._token_updater is not None:
+                self._token_updater(new_refresh_token)
 
     async def _async_post_token(self, body: dict[str, str]) -> dict[str, Any]:
         config = BRANDS[self._brand]
@@ -323,15 +331,25 @@ class PostenBringApiClient:
         return list(collected.values())
 
     async def _async_request(self, body: dict[str, Any]) -> dict[str, Any]:
-        """One inbox POST, refreshing the access token once on a 401/403."""
+        """One inbox POST, refreshing the access token once on a 401/403.
+
+        A 401/403 that survives that refresh is *not* raised as an auth
+        error: the refresh itself would have raised one if the credential
+        were dead, so reaching here means a valid token was refused by the
+        inbox — a server-side problem (WAF, revoked scope, an outage
+        answering 403). The coordinator decides when a run of those is
+        persistent enough to be worth a reauth prompt.
+        """
         access_token = await self._oauth.async_get_access_token()
         payload, status, retry_after = await self._async_do_request(access_token, body)
         if status in (401, 403):
             access_token = await self._oauth.async_handle_unauthorized()
             payload, status, retry_after = await self._async_do_request(access_token, body)
-
-        if status in (401, 403):
-            raise PostenBringAuthError(f"HTTP {status}", status_code=status)
+            if status in (401, 403):
+                raise PostenBringApiError(
+                    f"HTTP {status} from the inbox after a successful token refresh",
+                    status_code=status,
+                )
         if status == 429:
             raise PostenBringApiError(
                 "HTTP 429", status_code=429, retry_after=retry_after

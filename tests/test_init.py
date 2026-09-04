@@ -131,3 +131,35 @@ async def test_per_parcel_sensor_spawn_and_remove(hass):
             )
             is None
         )
+
+
+async def test_rotated_refresh_token_survives_a_failing_first_poll(hass):
+    """Setup fails after the refresh rotated — the entry must hold the new token.
+
+    Otherwise the retry (and every restart after it) reuses the token the
+    identity provider already burned, and a transient outage costs the user
+    the whole browser-paste login.
+    """
+    entry = _entry()
+    entry.add_to_hass(hass)
+
+    rotated = {
+        "access_token": "AT-NEW",
+        "refresh_token": "RT-NEW",
+        "expires_in": 3600,
+    }
+    with (
+        patch(
+            "custom_components.posten_bring.api.PostenBringSession._async_post_token",
+            new=AsyncMock(return_value=rotated),
+        ),
+        patch(
+            "custom_components.posten_bring.api.PostenBringApiClient._async_do_request",
+            new=AsyncMock(return_value=(None, 500, None)),
+        ),
+    ):
+        assert not await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.SETUP_RETRY
+    assert entry.data[CONF_REFRESH_TOKEN] == "RT-NEW"

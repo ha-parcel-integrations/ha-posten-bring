@@ -84,9 +84,23 @@ redirect their browser could not open — the same browser-paste shape as
   identical data — every parcel doubled, not two different parcel sets. The
   `user` step's description warns against this; there is no technical way to
   detect or block it.
-- A rotated refresh token is persisted by the coordinator (`pop_refresh_token_
-  changed()`), not the config flow, since ordinary polling — not just
-  reauth — can rotate it.
+- **A rotated refresh token is persisted from inside the refresh itself.**
+  Every refresh burns the token that was sent, and ordinary polling — not
+  just reauth — rotates it. `PostenBringSession` therefore takes a
+  `token_updater` callback (wired in `__init__.py` to
+  `async_update_entry`) and calls it the moment a rotated token arrives,
+  before the call it was refreshed for runs. Persisting after that call
+  instead would leave the entry holding a burned token whenever anything in
+  between failed, turning one transient 500 into a full browser-paste
+  reauth on the next restart.
+- **A 401/403 from the inbox is not an auth failure.** Only the token
+  endpoint can raise `PostenBringAuthError`. `api.py` retries the inbox once
+  after a forced refresh; if that refreshed token is *still* refused, the
+  credential is demonstrably fine and the refusal is server-side, so it
+  surfaces as `PostenBringApiError`. The coordinator retries those and only
+  raises `ConfigEntryAuthFailed` after `MAX_UNAUTHORIZED_POLLS` consecutive
+  ones — this carrier's reauth costs the user a devtools paste, so it must
+  never be triggered by a blip.
 
 **Status mapping is case-insensitive by design.** The wire format is
 lowercase `snake_case` (`status: "archived"`), not the `SCREAMING_SNAKE_CASE`

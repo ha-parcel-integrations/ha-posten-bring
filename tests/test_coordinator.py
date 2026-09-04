@@ -2,19 +2,21 @@
 
 The parcel mapping itself is covered by ``test_parcels.py``.
 """
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.posten_bring.api import PostenBringAuthError, PostenBringSession
+from custom_components.posten_bring.api import PostenBringApiError, PostenBringAuthError
 from custom_components.posten_bring.const import (
     CONF_BRAND,
     CONF_DELIVERED_FILTER_AMOUNT,
     CONF_DELIVERED_FILTER_TYPE,
     CONF_REFRESH_TOKEN,
     DOMAIN,
+    MAX_UNAUTHORIZED_POLLS,
     ParcelStatus,
 )
 from custom_components.posten_bring.coordinator import PostenBringCoordinator
@@ -41,15 +43,8 @@ def _entry() -> MockConfigEntry:
     )
 
 
-def _oauth() -> MagicMock:
-    oauth = MagicMock(spec=PostenBringSession)
-    oauth.pop_refresh_token_changed = MagicMock(return_value=False)
-    oauth.refresh_token = "RT-OLD"
-    return oauth
-
-
-def _coordinator(hass, entry, client, oauth=None) -> PostenBringCoordinator:
-    return PostenBringCoordinator(hass, client, entry, oauth_session=oauth or _oauth())
+def _coordinator(hass, entry, client) -> PostenBringCoordinator:
+    return PostenBringCoordinator(hass, client, entry)
 
 
 def _underway(number: str = ACTIVE_NUMBER) -> dict:
@@ -108,19 +103,61 @@ async def test_expired_session_triggers_reauth(hass):
         await coordinator._async_update_data()
 
 
-async def test_rotated_refresh_token_is_persisted(hass):
+@pytest.mark.parametrize("status", [401, 403])
+async def test_a_single_refused_poll_retries_instead_of_asking_for_reauth(hass, status):
+    """api.py only raises this with a token the provider just accepted."""
     entry = _entry()
     entry.add_to_hass(hass)
     client = AsyncMock()
-    client.async_get_parcels.return_value = []
-    oauth = _oauth()
-    oauth.pop_refresh_token_changed = MagicMock(return_value=True)
-    oauth.refresh_token = "RT-NEW"
-    coordinator = _coordinator(hass, entry, client, oauth)
+    client.async_get_parcels.side_effect = PostenBringApiError(
+        f"HTTP {status}", status_code=status
+    )
+    coordinator = _coordinator(hass, entry, client)
 
+    with pytest.raises(UpdateFailed):
+        await coordinator._async_update_data()
+
+
+async def test_persistently_refused_polls_do_end_in_reauth(hass):
+    """A refusal that never clears is not a blip — stop retrying silently."""
+    entry = _entry()
+    entry.add_to_hass(hass)
+    client = AsyncMock()
+    client.async_get_parcels.side_effect = PostenBringApiError(
+        "HTTP 401", status_code=401
+    )
+    coordinator = _coordinator(hass, entry, client)
+
+    for _ in range(MAX_UNAUTHORIZED_POLLS - 1):
+        with pytest.raises(UpdateFailed):
+            await coordinator._async_update_data()
+
+    with pytest.raises(ConfigEntryAuthFailed):
+        await coordinator._async_update_data()
+
+
+async def test_a_successful_poll_clears_the_refusal_streak(hass):
+    entry = _entry()
+    entry.add_to_hass(hass)
+    client = AsyncMock()
+    client.async_get_parcels.side_effect = PostenBringApiError(
+        "HTTP 403", status_code=403
+    )
+    coordinator = _coordinator(hass, entry, client)
+
+    for _ in range(MAX_UNAUTHORIZED_POLLS - 1):
+        with pytest.raises(UpdateFailed):
+            await coordinator._async_update_data()
+
+    client.async_get_parcels.side_effect = None
+    client.async_get_parcels.return_value = []
     await coordinator._async_update_data()
 
-    assert entry.data[CONF_REFRESH_TOKEN] == "RT-NEW"
+    client.async_get_parcels.side_effect = PostenBringApiError(
+        "HTTP 403", status_code=403
+    )
+    with pytest.raises(UpdateFailed):
+        await coordinator._async_update_data()
 
 
 # ---------------------------------------------------------------------------
