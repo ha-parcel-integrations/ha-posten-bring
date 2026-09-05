@@ -8,9 +8,9 @@ browser could not open. The stored credential is the refresh token that
 comes out of the code exchange — never a password, never the authorization
 code itself, which is discarded the moment the exchange finishes.
 
-No PKCE: the live gate (carrier-research/posten-bring/posten-bring.md,
-2026-09-01) confirmed the token endpoint rejects a public-client request
-regardless of PKCE, and the official app never sends a ``code_verifier`` —
+No PKCE: a live gate (2026-09-01) confirmed the token endpoint rejects a
+public-client request regardless of PKCE, and the official app never sends a
+``code_verifier`` —
 every token request is Basic-authenticated with the brand's embedded
 ``client_id``/``client_secret`` instead (see const.py's ``BRANDS``).
 

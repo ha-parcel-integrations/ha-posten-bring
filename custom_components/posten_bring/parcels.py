@@ -5,10 +5,9 @@ beyond the config entry's options.
 
 Status/product/event values are lowercase ``snake_case`` on the wire, not the
 ``SCREAMING_SNAKE_CASE`` the APK's enum member names implied (a live capture
-confirmed ``status: "archived"``, not ``"ARCHIVED"`` — see
-carrier-research/posten-bring/posten-bring.md's ``### Status vocabulary``).
-Every comparison below lowercases both the raw value and the map's keys
-first — never hardcode an uppercase spelling.
+confirmed ``status: "archived"``, not ``"ARCHIVED"``). Every comparison below
+lowercases both the raw value and the map's keys first — never hardcode an
+uppercase spelling.
 """
 from __future__ import annotations
 

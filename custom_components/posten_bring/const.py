@@ -43,8 +43,7 @@ CAPABILITIES = frozenset(
 
 # ---------------------------------------------------------------------------
 # OAuth — Postenid (id.posten.no / login.bring.com), Basic-authenticated
-# client credentials. See carrier-research/posten-bring/api/ (private) for
-# the full mechanics. The maintainer has explicitly approved shipping this
+# client credentials. The maintainer has explicitly approved shipping this
 # embedded client_id/client_secret pair for this carrier only — do not reuse
 # this pattern for another carrier without an equivalent override.
 # ---------------------------------------------------------------------------
