@@ -65,8 +65,8 @@
   "selector": {
     "brand": {
       "options": {
-        "posten": "Posten",
-        "bring": "Bring"
+        "posten": "Posten (Norway)",
+        "bring": "Bring (Sweden/Denmark)"
       }
     },
     "delivered_filter_type": {

@@ -30,9 +30,7 @@
       "cannot_connect": "Could not reach Posten Bring. Please try again."
     },
     "abort": {
-      "already_configured": "That Posten Bring account is already set up.",
-      "reauth_successful": "Posten Bring was reauthenticated successfully.",
-      "wrong_account": "Those credentials are for a different Posten Bring account. Sign in with the account this entry was set up for."
+      "reauth_successful": "Posten Bring was reauthenticated successfully."
     }
   },
   "options": {
