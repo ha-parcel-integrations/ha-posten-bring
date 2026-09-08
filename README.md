@@ -1,6 +1,7 @@
 # Posten Bring Parcel Tracker
 
 [![Release](https://img.shields.io/github/v/release/ha-parcel-integrations/ha-posten-bring.svg)](https://github.com/ha-parcel-integrations/ha-posten-bring/releases)
+[![Downloads](https://img.shields.io/github/downloads/ha-parcel-integrations/ha-posten-bring/total.svg)](https://github.com/ha-parcel-integrations/ha-posten-bring/releases)
 [![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
