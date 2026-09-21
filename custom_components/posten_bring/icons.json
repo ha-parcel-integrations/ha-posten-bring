@@ -33,7 +33,7 @@
         "default": "mdi:package-check"
       },
       "awaiting_pickup": {
-        "default": "mdi:package-variant-closed-check"
+        "default": "mdi:store-clock"
       }
     }
   }
