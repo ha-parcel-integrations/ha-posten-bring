@@ -58,15 +58,12 @@ it, and asks the user to paste back the complete `posten://…`/`bring://…`
 redirect their browser could not open — the same browser-paste shape as
 `ha-dhl`'s DE flow, adapted for this carrier's specifics:
 
-- **No PKCE.** The live gate (research doc, 2026-09-01) confirmed the token
-  endpoint rejects a public-client (no-secret) request regardless of PKCE,
-  and the official app never sends `code_verifier`. Every token-endpoint
-  call (initial exchange and refresh) sends `Authorization: Basic
-  base64(client_id:client_secret)` instead, using the brand's own embedded
-  pair (`const.py`'s `BRANDS`) — the maintainer has explicitly approved
-  shipping this baked-in secret for this carrier only; do not extract this
-  pattern into the template or reuse it for another carrier without an
-  equivalent override.
+- **No PKCE.** The token endpoint rejects a public-client (no-secret) request
+  regardless of PKCE. Every token-endpoint call (initial exchange and
+  refresh) sends `Authorization: Basic base64(client_id:client_secret)`
+  instead, using the per-brand pair in `const.py`'s `BRANDS`. This is a
+  one-carrier exception: do not extract the pattern into the template or
+  reuse it for another carrier.
 - **Brand picker, not a country picker.** Posten and Bring are one backend
   API with two registered OAuth clients and two redirect schemes; the first
   config-flow step only picks which client/redirect scheme to use
@@ -108,8 +105,8 @@ redirect their browser could not open — the same browser-paste shape as
   never be triggered by a blip.
 
 **Status mapping is case-insensitive by design.** The wire format is
-lowercase `snake_case` (`status: "archived"`), not the `SCREAMING_SNAKE_CASE`
-the APK's enum member names implied — `parcels.py`'s `map_parcel_status`
+lowercase `snake_case` (`status: "archived"`), not `SCREAMING_SNAKE_CASE` —
+`parcels.py`'s `map_parcel_status`
 lowercases every raw value before comparing. Never hardcode an uppercase
 spelling anywhere in this codebase.
 
