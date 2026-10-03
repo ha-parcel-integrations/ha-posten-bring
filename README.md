@@ -194,7 +194,7 @@ All third-party trademarks, trade names, product names, logos, and other brand a
 
 This integration may rely on public, unofficial, or undocumented carrier interfaces, accessed with your own account or API key where required. These may change or be withdrawn without notice and may be subject to Posten Bring's terms. Data is sent only to Posten Bring's own services or those of its group; this project operates no servers of its own. You are responsible for ensuring that your use complies with applicable law and those terms. Use is at your own risk; see the [licence](LICENSE) for warranty limitations.
 
-This integration uses the official Posten/Bring native-app OAuth client to read your own account's parcel inbox — the same credential pair the official Android app itself uses, embedded here with the project maintainer's explicit approval.
+This integration signs in to your own Posten/Bring account and reads your parcel inbox.
 
 ## Contributing
 
