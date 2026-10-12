@@ -1,0 +1,132 @@
+{
+  "title": "Posten Bring",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Opsæt Posten Bring",
+        "description": "Vælg hvilket brands login-side du vil bruge. En konto hos begge brands fungerer til at spore pakker i Norge, Sverige og Danmark — dette vælger kun, hvilken login-side der åbnes. Tilføj ikke integrationen en gang mere med det andet brand til samme konto: begge læser den samme indbakke, så du ville se hver pakke to gange.",
+        "data": {
+          "brand": "Brand"
+        }
+      },
+      "login": {
+        "title": "Log ind hos {brand}",
+        "description": "Åbn denne URL i en browser, og log ind med din {brand}-konto:\n\n{authorize_url}\n\nDin browser kan ikke åbne den adresse, den bliver omdirigeret til bagefter. Kopiér hele adressen fra browserens adresselinje, historik eller udviklerværktøjer, og indsæt den nedenfor — se den [trinvise vejledning]({docs_url}), hvis du er i tvivl om hvordan.",
+        "data": {
+          "redirect_url": "Omdirigerings-URL"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Posten Bring-login er udløbet",
+        "description": "Posten Bring accepterer ikke længere det gemte login. Åbn denne URL, log ind igen, og indsæt omdirigerings-URL'en nedenfor (se den [trinvise vejledning]({docs_url}), hvis du er i tvivl om, hvor du finder den):\n\n{authorize_url}",
+        "data": {
+          "redirect_url": "Omdirigerings-URL"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Posten Bring afviste loginet.",
+      "invalid_redirect": "Det ser ikke ud som en gyldig omdirigerings-URL — kontrollér, at du har kopieret hele adressen, inklusive code- og state-parametrene.",
+      "cannot_connect": "Kunne ikke få forbindelse til Posten Bring. Prøv igen."
+    },
+    "abort": {
+      "reauth_successful": "Posten Bring blev godkendt igen."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Posten Bring-indstillinger",
+        "sections": {
+          "delivered": {
+            "name": "Leverede pakker",
+            "data": {
+              "delivered_filter_type": "Filtrer efter",
+              "delivered_filter_amount": "Antal"
+            },
+            "data_description": {
+              "delivered_filter_type": "Vis leverede pakker fra de sidste X dage, eller begræns til de X seneste.",
+              "delivered_filter_amount": "Antal dage eller pakker der skal vises."
+            }
+          },
+          "history": {
+            "name": "Pakkehistorik",
+            "data": {
+              "include_history": "Inkluder statushistorik"
+            },
+            "data_description": {
+              "include_history": "Tilføjer en historikattribut pr. pakke, der viser hver statusopdatering (tidspunkt, original hændelsestekst). Slået fra som standard."
+            }
+          }
+        }
+      }
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "posten": "Posten (Norge)",
+        "bring": "Bring (Sverige/Danmark)"
+      }
+    },
+    "delivered_filter_type": {
+      "options": {
+        "days": "Dage",
+        "parcels": "Antal pakker"
+      }
+    }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "parcel_registered": "En pakke blev registreret",
+      "parcel_status_changed": "En pakkes status ændrede sig",
+      "parcel_delivered": "En pakke blev leveret",
+      "parcel_delivery_time_changed": "En pakkes forventede leveringstid ændrede sig",
+      "outgoing_parcel_status_changed": "En udgående pakkes status ændrede sig",
+      "outgoing_parcel_delivered": "En udgående pakke blev leveret"
+    }
+  },
+  "entity": {
+    "button": {
+      "refresh": {
+        "name": "Opdater"
+      }
+    },
+    "calendar": {
+      "deliveries": {
+        "name": "Leveringer"
+      }
+    },
+    "sensor": {
+      "incoming_parcels": {
+        "name": "Indkommende pakker",
+        "unit_of_measurement": "pakker"
+      },
+      "next_delivery": {
+        "name": "Næste levering"
+      },
+      "delivered_parcels": {
+        "name": "Leverede pakker",
+        "unit_of_measurement": "pakker"
+      },
+      "outgoing_parcels": {
+        "name": "Udgående pakker",
+        "unit_of_measurement": "pakker"
+      },
+      "outgoing_delivered_parcels": {
+        "name": "Udgående leverede pakker",
+        "unit_of_measurement": "pakker"
+      },
+      "last_update": {
+        "name": "Sidste vellykkede opdatering"
+      },
+      "parcel": {
+        "name": "Pakke {barcode}"
+      },
+      "awaiting_pickup": {
+        "name": "Klar til afhentning",
+        "unit_of_measurement": "pakker"
+      }
+    }
+  }
+}
