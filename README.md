@@ -47,7 +47,7 @@ Part of the [ha-parcel-integrations](https://ha-parcel-integrations.github.io/) 
 
 ## Requirements
 
-- Home Assistant 2024.12 or newer
+- Home Assistant 2025.12 or newer
 - Your own **Posten** or **Bring** consumer account (Vipps or phone-number login) — Posten Bring is active in **Norway, Sweden and Denmark** (confirmed for Norway and Sweden; Denmark is expected but not yet independently confirmed). Not Finland: Bring is no longer active there.
 - A desktop browser with developer tools, to complete the one-time sign-in (see [Configuration](#configuration))
 
