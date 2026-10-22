@@ -56,7 +56,11 @@ see [Troubleshooting](#troubleshooting).
 ### HACS (recommended)
 
 1. Open HACS and search for **Posten Bring**.
-2. Install it and restart Home Assistant.
+2. Install it and restart Home Assistant if HACS asks you to.
+
+Or click the button below to open it directly in HACS:
+
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=ha-parcel-integrations&repository=ha-posten-bring&category=integration)
 
 ### Manual
 
@@ -64,7 +68,9 @@ Copy `custom_components/posten_bring` into your `config/custom_components/` fold
 
 ## Configuration
 
-Add the integration via **Settings → Devices & Services → Add Integration → Posten Bring**.
+[![Open your Home Assistant instance and start setting up this integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=posten_bring)
+
+Or set it up by hand: add the integration via **Settings → Devices & Services → Add Integration → Posten Bring**.
 
 1. Pick which brand's login you use — **Posten** or **Bring**. Either works for parcels in Norway, Sweden and Denmark alike; this only picks which login page opens. Don't add the integration twice with the other brand for the same account — both read the same inbox, so every parcel would show up twice.
 2. Open the shown authorization URL in a browser and sign in (Vipps or phone number).
