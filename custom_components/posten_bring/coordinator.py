@@ -116,6 +116,8 @@ class PostenBringCoordinator(DataUpdateCoordinator[list[dict]]):
     are the ``direction: "send"`` counterparts.
     """
 
+    config_entry: ConfigEntry
+
     def __init__(
         self,
         hass: HomeAssistant,

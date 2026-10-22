@@ -73,6 +73,18 @@ async def test_user_flow_shows_brand_picker(hass):
     assert result["type"] == "form"
 
 
+async def test_login_step_without_a_brand_goes_back_to_the_picker(hass):
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(result["flow_id"])
+    assert result["step_id"] == "user"
+
+    flow = hass.config_entries.flow._progress[result["flow_id"]]
+    result = await flow.async_step_login()
+    assert result["step_id"] == "user"
+
+
 async def test_user_flow_shows_authorize_url_for_the_picked_brand(hass):
     with patch(SESSION_CLASS, return_value=_fake_session()):
         result = await _start_bring_flow(hass, brand="posten")

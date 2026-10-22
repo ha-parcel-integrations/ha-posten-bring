@@ -306,7 +306,8 @@ def normalize_parcel(raw: dict, *, include_history: bool = False) -> dict:
     """
     barcode = raw.get("parcelNumber")
     raw_status = raw.get("status")
-    events = raw.get("events") if isinstance(raw.get("events"), list) else []
+    raw_events = raw.get("events")
+    events: list[Any] = raw_events if isinstance(raw_events, list) else []
     status = map_parcel_status(raw_status, events, barcode=barcode)
     delivered = status is ParcelStatus.DELIVERED
 

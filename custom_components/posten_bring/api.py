@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import base64
 from collections.abc import Callable
+import contextlib
 from datetime import UTC, datetime, timedelta
 import json
 import logging
@@ -186,7 +187,7 @@ class PostenBringSession:
                 "no refresh_token to refresh with — the config entry is not set up"
             )
         if self._needs_refresh:
-            await self._async_refresh()
+            await self._async_refresh(self.refresh_token)
         assert self._access_token is not None
         return self._access_token
 
@@ -200,13 +201,13 @@ class PostenBringSession:
             raise PostenBringApiError(
                 "no refresh_token to refresh with — the config entry is not set up"
             )
-        await self._async_refresh()
+        await self._async_refresh(self.refresh_token)
         assert self._access_token is not None
         return self._access_token
 
-    async def _async_refresh(self) -> None:
+    async def _async_refresh(self, refresh_token: str) -> None:
         payload = await self._async_post_token(
-            {"grant_type": "refresh_token", "refresh_token": self.refresh_token}
+            {"grant_type": "refresh_token", "refresh_token": refresh_token}
         )
         self._store_tokens(payload)
         new_refresh_token = payload.get("refresh_token")
@@ -261,10 +262,10 @@ class PostenBringSession:
             raise PostenBringApiError("token response had no access_token")
         self._access_token = access_token
         expires_in = payload.get("expires_in")
-        try:
-            lifetime = timedelta(seconds=float(expires_in))
-        except (TypeError, ValueError):
-            lifetime = timedelta(seconds=DEFAULT_TOKEN_LIFETIME_SECONDS)
+        lifetime = timedelta(seconds=DEFAULT_TOKEN_LIFETIME_SECONDS)
+        if expires_in is not None:
+            with contextlib.suppress(TypeError, ValueError):
+                lifetime = timedelta(seconds=float(expires_in))
         self._expires_at = datetime.now(UTC) + lifetime
 
 

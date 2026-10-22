@@ -157,6 +157,9 @@ class PostenBringConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Show the authorization URL and the paste-back form."""
+        brand = self._brand
+        if brand is None:
+            return await self.async_step_user()
         self._ensure_authorize_url()
 
         errors: dict[str, str] = {}
@@ -167,9 +170,9 @@ class PostenBringConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 session = self._get_oauth_session()
                 return self.async_create_entry(
-                    title=BRANDS[self._brand]["name"],
+                    title=BRANDS[brand]["name"],
                     data={
-                        CONF_BRAND: self._brand,
+                        CONF_BRAND: brand,
                         CONF_REFRESH_TOKEN: session.refresh_token,
                     },
                     options={
@@ -184,7 +187,7 @@ class PostenBringConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=_REDIRECT_SCHEMA,
             errors=errors,
             description_placeholders={
-                "brand": BRANDS[self._brand]["name"],
+                "brand": BRANDS[brand]["name"],
                 "authorize_url": self._authorize_url or "",
                 "docs_url": REDIRECT_URL_DOCS_URL,
             },
