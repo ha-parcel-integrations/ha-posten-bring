@@ -1,8 +1,9 @@
 """Posten Bring parcel tracker custom component for Home Assistant."""
+
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
+import logging
 
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
@@ -29,9 +30,7 @@ class PostenBringData:
 type PostenBringConfigEntry = ConfigEntry[PostenBringData]
 
 
-async def async_setup_entry(
-    hass: HomeAssistant, entry: PostenBringConfigEntry
-) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: PostenBringConfigEntry) -> bool:
     """Set up Posten Bring from a config entry."""
     # Each config entry gets its own session so a token refresh mid-poll on
     # one account never touches another's in-flight request.
@@ -76,7 +75,10 @@ async def async_setup_entry(
         raise
 
     entry.runtime_data = PostenBringData(
-        client=client, coordinator=coordinator, oauth_session=oauth_session, session=session
+        client=client,
+        coordinator=coordinator,
+        oauth_session=oauth_session,
+        session=session,
     )
 
     try:

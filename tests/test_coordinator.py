@@ -2,11 +2,13 @@
 
 The parcel mapping itself is covered by ``test_parcels.py``.
 """
+
 from unittest.mock import AsyncMock
 
-import pytest
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import UpdateFailed
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.posten_bring.api import PostenBringApiError, PostenBringAuthError
@@ -69,7 +71,10 @@ async def test_update_splits_active_and_delivered(hass):
     entry = _entry()
     entry.add_to_hass(hass)
     client = AsyncMock()
-    client.async_get_parcels.return_value = [active_parcel(), archived_delivered_parcel()]
+    client.async_get_parcels.return_value = [
+        active_parcel(),
+        archived_delivered_parcel(),
+    ]
     coordinator = _coordinator(hass, entry, client)
 
     data = await coordinator._async_update_data()
@@ -276,8 +281,6 @@ async def test_first_refresh_fires_nothing(hass):
 
 
 async def test_event_carries_device_id(hass):
-    from homeassistant.helpers import device_registry as dr
-
     entry = _entry()
     entry.add_to_hass(hass)
     device = dr.async_get(hass).async_get_or_create(
@@ -288,9 +291,7 @@ async def test_event_carries_device_id(hass):
     coordinator = _coordinator(hass, entry, client)
 
     events = []
-    hass.bus.async_listen(
-        f"{DOMAIN}_parcel_status_changed", lambda e: events.append(e)
-    )
+    hass.bus.async_listen(f"{DOMAIN}_parcel_status_changed", lambda e: events.append(e))
 
     client.async_get_parcels.return_value = [_underway()]
     await coordinator._async_update_data()
@@ -308,9 +309,7 @@ async def test_fires_status_changed_event(hass):
     coordinator = _coordinator(hass, entry, client)
 
     events = []
-    hass.bus.async_listen(
-        f"{DOMAIN}_parcel_status_changed", lambda e: events.append(e)
-    )
+    hass.bus.async_listen(f"{DOMAIN}_parcel_status_changed", lambda e: events.append(e))
 
     client.async_get_parcels.return_value = [_underway()]
     await coordinator._async_update_data()  # first refresh: suppressed
@@ -361,7 +360,10 @@ async def test_no_events_for_parcel_first_seen_delivered(hass):
 
     client.async_get_parcels.return_value = [active_parcel()]
     await coordinator._async_update_data()  # first refresh seeds the state
-    client.async_get_parcels.return_value = [active_parcel(), archived_delivered_parcel()]
+    client.async_get_parcels.return_value = [
+        active_parcel(),
+        archived_delivered_parcel(),
+    ]
     await coordinator._async_update_data()
     await hass.async_block_till_done()
 

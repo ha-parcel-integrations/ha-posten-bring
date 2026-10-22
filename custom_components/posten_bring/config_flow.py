@@ -22,14 +22,14 @@ inbox). This flow therefore does not call ``async_set_unique_id`` /
 ``_abort_if_unique_id_configured`` for new entries — a deliberate,
 documented gap, not an oversight (see CLAUDE.md).
 """
+
 from __future__ import annotations
 
-import logging
 from collections.abc import Mapping
+import logging
 from typing import Any
 
 import aiohttp
-import voluptuous as vol
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
@@ -40,6 +40,7 @@ from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+import voluptuous as vol
 
 from .api import (
     PostenBringApiError,
@@ -241,9 +242,7 @@ class PostenBringOptionsFlowHandler(OptionsFlow):
             history = user_input["history"]
             # No update listener is registered — combining one with a
             # reload-on-update flow is deprecated.
-            self.hass.config_entries.async_schedule_reload(
-                self.config_entry.entry_id
-            )
+            self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
             return self.async_create_entry(
                 title="",
                 data={

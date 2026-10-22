@@ -1,9 +1,10 @@
 """Tests for the Posten Bring config and options flow."""
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
-import pytest
 from homeassistant.config_entries import SOURCE_USER
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.posten_bring.api import PostenBringApiError, PostenBringAuthError
@@ -21,7 +22,9 @@ SESSION_CLASS = "custom_components.posten_bring.config_flow.PostenBringSession"
 
 
 def _fake_session(
-    *, refresh_token: str = "the-refresh-token", exchange_side_effect=None
+    *,
+    refresh_token: str = "the-refresh-token",  # noqa: S107 - test double
+    exchange_side_effect=None,
 ) -> MagicMock:
     session = MagicMock()
     session.async_exchange_code = AsyncMock(side_effect=exchange_side_effect)
@@ -152,7 +155,7 @@ async def test_login_step_rejects_wrong_scheme(hass):
 
 
 @pytest.mark.parametrize(
-    "error,expected",
+    ("error", "expected"),
     [
         (PostenBringAuthError("HTTP 401"), "invalid_auth"),
         (PostenBringApiError("HTTP 500"), "cannot_connect"),
@@ -206,7 +209,9 @@ async def test_reauth_does_not_ask_for_the_brand_again(hass):
         result = await entry.start_reauth_flow(hass)
 
     assert result["step_id"] == "reauth_confirm"
-    assert BRANDS["posten"]["host"] in result["description_placeholders"]["authorize_url"]
+    assert (
+        BRANDS["posten"]["host"] in result["description_placeholders"]["authorize_url"]
+    )
 
 
 async def test_reauth_surfaces_invalid_credentials(hass):
@@ -238,9 +243,7 @@ async def test_options_flow_saves_and_reloads(hass):
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["step_id"] == "init"
 
-    with patch.object(
-        hass.config_entries, "async_schedule_reload"
-    ) as schedule_reload:
+    with patch.object(hass.config_entries, "async_schedule_reload") as schedule_reload:
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
             {

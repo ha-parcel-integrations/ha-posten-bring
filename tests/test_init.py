@@ -1,15 +1,13 @@
 """Tests for Posten Bring setup and unload."""
+
 from unittest.mock import AsyncMock, patch
 
-import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.helpers import entity_registry as er
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.posten_bring.api import (
-    PostenBringApiError,
-    PostenBringAuthError,
-)
+from custom_components.posten_bring.api import PostenBringApiError, PostenBringAuthError
 from custom_components.posten_bring.const import CONF_BRAND, CONF_REFRESH_TOKEN, DOMAIN
 
 from .payloads import active_parcel

@@ -1,10 +1,13 @@
 """Tests for the Posten Bring OAuth session and inbox API client."""
+
+import base64
 import json
 from unittest.mock import AsyncMock, MagicMock
 
 import aiohttp
 import pytest
 
+import custom_components.posten_bring.api as api_module
 from custom_components.posten_bring.api import (
     PostenBringApiClient,
     PostenBringApiError,
@@ -72,7 +75,7 @@ def test_parse_redirect_url_extracts_code_and_state():
 
 
 def test_parse_redirect_url_strips_whitespace():
-    code, state = parse_redirect_url(
+    code, _state = parse_redirect_url(
         "  bring://login?code=abc123&state=xyz\n", expected_uri="bring://login"
     )
     assert code == "abc123"
@@ -107,8 +110,6 @@ async def test_exchange_code_sends_basic_auth_and_stores_tokens():
 
     assert payload["access_token"] == "AT1"
     assert oauth.refresh_token == "RT1"
-    import base64
-
     kwargs = session.post.call_args[1]
     expected = base64.b64encode(
         f"{BRANDS['bring']['client_id']}:{BRANDS['bring']['client_secret']}".encode()
@@ -125,7 +126,9 @@ async def test_exchange_code_raises_api_error_without_refresh_token():
         await oauth.async_exchange_code("the-code")
 
 
-@pytest.mark.parametrize("status,error", [(401, "invalid_client"), (400, "invalid_grant")])
+@pytest.mark.parametrize(
+    ("status", "error"), [(401, "invalid_client"), (400, "invalid_grant")]
+)
 async def test_exchange_code_raises_auth_error_on_rejection(status, error):
     session = _session_returning((status, {"error": error}))
     oauth = PostenBringSession(session, brand="bring")
@@ -245,7 +248,7 @@ async def test_post_token_raises_on_malformed_body():
 # ---------------------------------------------------------------------------
 
 
-def _oauth_stub(access_token: str = "AT1") -> MagicMock:
+def _oauth_stub(access_token: str = "AT1") -> MagicMock:  # noqa: S107 - test double, not a credential
     oauth = MagicMock(spec=PostenBringSession)
     oauth.async_get_access_token = AsyncMock(return_value=access_token)
     oauth.async_handle_unauthorized = AsyncMock(return_value=access_token)
@@ -297,12 +300,8 @@ async def test_get_parcels_stops_on_non_advancing_cursor():
 
 
 async def test_get_parcels_respects_the_page_cap(monkeypatch):
-    import custom_components.posten_bring.api as api_module
-
     monkeypatch.setattr(api_module, "INBOX_MAX_PAGES", 3)
-    pages = [
-        inbox_page([active_parcel(f"N{i}")], remaining_count=1) for i in range(5)
-    ]
+    pages = [inbox_page([active_parcel(f"N{i}")], remaining_count=1) for i in range(5)]
     session = _session_returning(*[(200, page) for page in pages])
     client = PostenBringApiClient(session, _oauth_stub())
 

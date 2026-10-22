@@ -9,10 +9,11 @@ confirmed ``status: "archived"``, not ``"ARCHIVED"``). Every comparison below
 lowercases both the raw value and the map's keys first — never hardcode an
 uppercase spelling.
 """
+
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 import logging
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -110,11 +111,11 @@ def parse_iso(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
-        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(str(value))
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
     return parsed
 
 
@@ -130,7 +131,7 @@ def to_iso_timestamp(value: Any) -> str | None:
         return None
     if isinstance(value, (int, float)):
         try:
-            return datetime.fromtimestamp(value / 1000, tz=timezone.utc).isoformat()
+            return datetime.fromtimestamp(value / 1000, tz=UTC).isoformat()
         except (OverflowError, OSError, ValueError):
             return None
     return str(value)
@@ -176,7 +177,9 @@ def _derive_status_from_events(
     returned) still wins over an earlier one.
     """
     latest_conclusive = _most_recent_event_of_types(events, _CONCLUSIVE_EVENT_TYPES)
-    event_type = str(latest_conclusive.get("type") or "").lower() if latest_conclusive else ""
+    event_type = (
+        str(latest_conclusive.get("type") or "").lower() if latest_conclusive else ""
+    )
     if event_type in _DELIVERED_EVENT_TYPES:
         return ParcelStatus.DELIVERED
     if event_type in _RETURNING_EVENT_TYPES:
@@ -383,14 +386,12 @@ def apply_delivered_filter(parcels: list[dict], entry: ConfigEntry) -> list[dict
     ``parcels`` must already be sorted newest-first.
     """
     options = entry.options
-    filter_type = options.get(
-        CONF_DELIVERED_FILTER_TYPE, DEFAULT_DELIVERED_FILTER_TYPE
-    )
+    filter_type = options.get(CONF_DELIVERED_FILTER_TYPE, DEFAULT_DELIVERED_FILTER_TYPE)
     amount = int(
         options.get(CONF_DELIVERED_FILTER_AMOUNT, DEFAULT_DELIVERED_FILTER_AMOUNT)
     )
     if filter_type == "days":
-        cutoff = datetime.now(timezone.utc) - timedelta(days=amount)
+        cutoff = datetime.now(UTC) - timedelta(days=amount)
         return [
             parcel
             for parcel in parcels

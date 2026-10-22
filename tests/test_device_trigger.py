@@ -1,4 +1,5 @@
 """Tests for Posten Bring device triggers."""
+
 from custom_components.posten_bring.const import DOMAIN
 from custom_components.posten_bring.device_trigger import (
     TRIGGER_EVENTS,

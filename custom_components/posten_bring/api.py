@@ -21,14 +21,15 @@ a successful refresh is a :class:`~.const.PostenBringApiError`: the refresh
 having succeeded proves the credential is fine, so pushing the user into a
 reauth flow there would cost them the browser paste for nothing.
 """
+
 from __future__ import annotations
 
 import base64
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 import json
 import logging
 import secrets
-from collections.abc import Callable
-from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
 
@@ -143,7 +144,7 @@ class PostenBringSession:
     def _needs_refresh(self) -> bool:
         if self._access_token is None or self._expires_at is None:
             return True
-        return datetime.now(timezone.utc) >= self._expires_at - _TOKEN_REFRESH_MARGIN
+        return datetime.now(UTC) >= self._expires_at - _TOKEN_REFRESH_MARGIN
 
     def _basic_auth_header(self) -> str:
         """Build the ``Authorization: Basic …`` header value for this brand.
@@ -174,9 +175,7 @@ class PostenBringSession:
         self._store_tokens(payload)
         refresh_token = payload.get("refresh_token")
         if not refresh_token:
-            raise PostenBringApiError(
-                "token response had no refresh_token"
-            )
+            raise PostenBringApiError("token response had no refresh_token")
         self.refresh_token = refresh_token
         return payload
 
@@ -266,7 +265,7 @@ class PostenBringSession:
             lifetime = timedelta(seconds=float(expires_in))
         except (TypeError, ValueError):
             lifetime = timedelta(seconds=DEFAULT_TOKEN_LIFETIME_SECONDS)
-        self._expires_at = datetime.now(timezone.utc) + lifetime
+        self._expires_at = datetime.now(UTC) + lifetime
 
 
 class PostenBringApiClient:
@@ -288,16 +287,22 @@ class PostenBringApiClient:
         ``remainingCount`` cursor cannot loop forever. Deduplicates by
         ``parcelNumber`` across pages.
         """
-        since = (
-            datetime.now(timezone.utc) - timedelta(days=INBOX_LOOKBACK_DAYS)
-        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        since = (datetime.now(UTC) - timedelta(days=INBOX_LOOKBACK_DAYS)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
 
         collected: dict[str, dict[str, Any]] = {}
         exclude: list[str] = []
         for _ in range(INBOX_MAX_PAGES):
-            envelope = await self._async_request({"lastUpdated": since, "exclude": exclude})
+            envelope = await self._async_request(
+                {"lastUpdated": since, "exclude": exclude}
+            )
             parcels = envelope.get("parcels")
-            page = [p for p in parcels if isinstance(p, dict)] if isinstance(parcels, list) else []
+            page = (
+                [p for p in parcels if isinstance(p, dict)]
+                if isinstance(parcels, list)
+                else []
+            )
 
             new_numbers = []
             for parcel in page:
@@ -344,7 +349,9 @@ class PostenBringApiClient:
         payload, status, retry_after = await self._async_do_request(access_token, body)
         if status in (401, 403):
             access_token = await self._oauth.async_handle_unauthorized()
-            payload, status, retry_after = await self._async_do_request(access_token, body)
+            payload, status, retry_after = await self._async_do_request(
+                access_token, body
+            )
             if status in (401, 403):
                 raise PostenBringApiError(
                     f"HTTP {status} from the inbox after a successful token refresh",

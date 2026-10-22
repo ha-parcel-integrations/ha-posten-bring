@@ -5,11 +5,12 @@ incoming and outgoing parcels in the same list (``direction``), unlike
 carriers with a separate sent-shipments endpoint — so a single coordinator
 splits the one fetched list into incoming/outgoing rather than needing two.
 """
+
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 import hashlib
 import logging
-from datetime import datetime, timedelta, timezone
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -66,10 +67,9 @@ def _next_anchor(now: datetime) -> datetime:
     )
     if now < six_today:
         return six_today
-    midnight_tomorrow = (now + timedelta(days=1)).replace(
+    return (now + timedelta(days=1)).replace(
         hour=QUIET_WINDOW_START_HOUR, minute=0, second=0, microsecond=0
     )
-    return midnight_tomorrow
 
 
 def _hottest_tier_minutes(active_parcels: list[dict], now: datetime) -> int:
@@ -138,9 +138,9 @@ class PostenBringCoordinator(DataUpdateCoordinator[list[dict]]):
         self._consecutive_unauthorized = 0
         self._current_tier_minutes: int | None = None
         self._known_state: dict[str, ParcelStatus] | None = None
-        self._known_delivery_times: (
-            dict[str, tuple[str | None, str | None]] | None
-        ) = None
+        self._known_delivery_times: dict[str, tuple[str | None, str | None]] | None = (
+            None
+        )
         self._known_outgoing_state: dict[str, ParcelStatus] | None = None
         self._cached_device_id: str | None = None
         self.last_success_time: datetime | None = None
@@ -169,13 +169,11 @@ class PostenBringCoordinator(DataUpdateCoordinator[list[dict]]):
     def _include_history(self) -> bool:
         """Whether the opt-in per-parcel history option is enabled."""
         return bool(
-            self.config_entry.options.get(
-                CONF_INCLUDE_HISTORY, DEFAULT_INCLUDE_HISTORY
-            )
+            self.config_entry.options.get(CONF_INCLUDE_HISTORY, DEFAULT_INCLUDE_HISTORY)
         )
 
     async def _async_update_data(self) -> list[dict]:
-        """Fetch the account's parcels and split into incoming/outgoing × active/delivered."""
+        """Fetch the account's parcels and split into incoming/outgoing x active/delivered."""
         try:
             raws = await self._client.async_get_parcels()
         except PostenBringAuthError as err:
@@ -212,7 +210,8 @@ class PostenBringCoordinator(DataUpdateCoordinator[list[dict]]):
         outgoing_raw = [r for r in raws if parcel_direction(r) == DIRECTION_OUTGOING]
 
         normalized = [
-            normalize_parcel(raw, include_history=include_history) for raw in incoming_raw
+            normalize_parcel(raw, include_history=include_history)
+            for raw in incoming_raw
         ]
         active = [parcel for parcel in normalized if not parcel["delivered"]]
         delivered = [parcel for parcel in normalized if parcel["delivered"]]
@@ -236,7 +235,8 @@ class PostenBringCoordinator(DataUpdateCoordinator[list[dict]]):
         }
 
         normalized_outgoing = [
-            normalize_parcel(raw, include_history=include_history) for raw in outgoing_raw
+            normalize_parcel(raw, include_history=include_history)
+            for raw in outgoing_raw
         ]
         outgoing_active = [p for p in normalized_outgoing if not p["delivered"]]
         outgoing_delivered = [p for p in normalized_outgoing if p["delivered"]]
@@ -253,7 +253,7 @@ class PostenBringCoordinator(DataUpdateCoordinator[list[dict]]):
             if parcel.get("barcode")
         }
 
-        self.last_success_time = datetime.now(timezone.utc)
+        self.last_success_time = datetime.now(UTC)
 
         now = dt_util.now()
         self._current_tier_minutes = _hottest_tier_minutes(

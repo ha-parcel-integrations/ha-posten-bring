@@ -7,6 +7,7 @@ wire values, nested paths) rather than invented "approved" ones. Keep them
 in one module rather than inline in each test — when the payload shape turns
 out to differ from what's assumed here, there is exactly one place to fix.
 """
+
 from __future__ import annotations
 
 ACTIVE_NUMBER = "PB999999999NO"

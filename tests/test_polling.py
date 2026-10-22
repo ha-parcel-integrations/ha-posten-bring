@@ -4,11 +4,12 @@ Pure-function tests for the tiering/scheduling helpers, plus a few
 integration checks that ``_async_update_data`` wires them up: the account
 never fully stops, and a 429 triggers the backoff.
 """
-from datetime import datetime, timedelta, timezone
+
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
-import pytest
 from homeassistant.helpers.update_coordinator import UpdateFailed
+import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.posten_bring.api import PostenBringApiError
@@ -32,8 +33,6 @@ from custom_components.posten_bring.coordinator import (
 )
 
 from .payloads import active_parcel
-
-UTC = timezone.utc
 
 
 def _out_for_delivery(planned_from: str | None) -> dict:
@@ -86,7 +85,10 @@ def test_stagger_is_stable_and_bounded():
 
 
 def test_tier_is_mid_when_nothing_active():
-    assert _hottest_tier_minutes([], datetime(2026, 1, 1, 12, tzinfo=UTC)) == MID_INTERVAL_MINUTES
+    assert (
+        _hottest_tier_minutes([], datetime(2026, 1, 1, 12, tzinfo=UTC))
+        == MID_INTERVAL_MINUTES
+    )
 
 
 def test_tier_is_mid_for_non_hot_statuses():
