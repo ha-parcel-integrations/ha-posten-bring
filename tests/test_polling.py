@@ -6,7 +6,7 @@ never fully stops, and a 429 triggers the backoff.
 """
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from homeassistant.helpers.update_coordinator import UpdateFailed
 import pytest
@@ -240,3 +240,25 @@ async def test_non_429_api_error_still_propagates(hass):
 
     with pytest.raises(PostenBringApiError):
         await coordinator._async_update_data()
+
+
+async def test_failed_poll_drops_the_overnight_interval(hass):
+    entry = _entry()
+    entry.add_to_hass(hass)
+    coordinator = _coordinator(hass, entry, AsyncMock())
+    coordinator.update_interval = timedelta(hours=5, minutes=40)
+
+    noon = datetime(2026, 1, 15, 12, tzinfo=UTC)
+    with (
+        patch.object(coordinator, "_async_poll", side_effect=TimeoutError),
+        patch(
+            "custom_components.posten_bring.coordinator.dt_util.now", return_value=noon
+        ),
+        pytest.raises(TimeoutError),
+    ):
+        await coordinator._async_update_data()
+
+    assert coordinator.update_interval is not None
+    assert coordinator.update_interval <= timedelta(
+        minutes=MID_INTERVAL_MINUTES + STAGGER_MINUTES
+    )
