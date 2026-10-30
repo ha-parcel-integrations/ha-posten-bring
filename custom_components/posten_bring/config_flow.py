@@ -34,7 +34,7 @@ from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
-    OptionsFlow,
+    OptionsFlowWithReload,
 )
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import section
@@ -233,7 +233,7 @@ class PostenBringConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
 
-class PostenBringOptionsFlowHandler(OptionsFlow):
+class PostenBringOptionsFlowHandler(OptionsFlowWithReload):
     """Manage delivered retention and history in one sectioned form."""
 
     async def async_step_init(
@@ -243,9 +243,8 @@ class PostenBringOptionsFlowHandler(OptionsFlow):
         if user_input is not None:
             delivered = user_input["delivered"]
             history = user_input["history"]
-            # No update listener is registered — combining one with a
-            # reload-on-update flow is deprecated.
-            self.hass.config_entries.async_schedule_reload(self.config_entry.entry_id)
+            # OptionsFlowWithReload reloads once the new options are saved; a
+            # reload scheduled here would start before that, on the old ones.
             return self.async_create_entry(
                 title="",
                 data={
