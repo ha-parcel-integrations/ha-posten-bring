@@ -124,6 +124,7 @@ Standard HA removal applies: **Settings → Devices & Services → Posten Bring 
 | `sensor.posten_bring_<account>_outgoing_parcels` | Number of active outgoing parcels (`direction: send`) |
 | `sensor.posten_bring_<account>_outgoing_delivered_parcels` | Recently delivered outgoing parcels |
 | `sensor.posten_bring_<account>_awaiting_pickup` | Parcels ready for collection at a pickup point |
+| `calendar.posten_bring_<account>_deliveries` | Read-only calendar of expected deliveries, no extra API calls |
 | `sensor.posten_bring_<account>_last_successful_update` | Diagnostic: when the account was last polled successfully |
 
 A delivered parcel moves from its per-parcel sensor to the delivered sensor automatically.
@@ -178,7 +179,7 @@ logger:
 
 - **The setup form never shows a working redirect.** Make sure you complete the sign-in in a desktop browser with developer tools open and "preserve log" enabled *before* submitting the login form — see [docs/finding-the-redirect-url.md](docs/finding-the-redirect-url.md).
 - **"That doesn't look like a valid redirect URL".** Paste the complete address, including `?code=…&state=…`. The code is single-use and short-lived — if it's been a few minutes, redo the sign-in.
-- **A status logs "Unrecognised Posten Bring status"** — please [open an issue](https://github.com/ha-parcel-integrations/ha-posten-bring/issues/new) with the logged line so the mapping can be extended.
+- **A status logs "Unrecognised Posten Bring status"** — please [open an issue](https://github.com/ha-parcel-integrations/ha-posten-bring/issues/new?template=unrecognised_status.yml) with the logged line so the mapping can be extended.
 - **Using a Danish account.** Posten Bring's shared inbox has been confirmed to return Norwegian and Swedish accounts' own parcels; Danish coverage hasn't been independently tested yet. If it doesn't show your parcels, please [open an issue](https://github.com/ha-parcel-integrations/ha-posten-bring/issues/new) — that's exactly the report this needs.
 
 ## Related integrations
