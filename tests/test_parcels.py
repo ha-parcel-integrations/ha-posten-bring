@@ -203,6 +203,10 @@ def test_to_iso_timestamp_passes_strings_through_and_converts_epoch_ms():
     assert to_iso_timestamp(10**20) is None  # out of range -> None, never raises
 
 
+def test_format_dimensions_rounds_the_text():
+    assert format_dimensions(27.9, 5.1, 27.9)["text"] == "28 x 5 x 28 cm"
+
+
 def test_format_dimensions_needs_all_three_axes():
     assert format_dimensions(30, 20, 10) == {
         "length": 30,
