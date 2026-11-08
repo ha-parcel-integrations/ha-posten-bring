@@ -65,10 +65,14 @@ Edge uses the same Chromium DevTools as Chrome, so the steps are identical:
 3. Click the **gear icon** (⚙) in the Network panel and enable
    **"Persist Logs"** — this is Firefox's equivalent of "preserve log".
 4. Complete the sign-in.
-5. Type `posten` or `bring` into the Network panel's filter box to find the
-   request.
-6. Click the request. In the details pane, the **Headers** tab shows the
-   **URL** near the top — copy it in full.
+5. Unlike Chrome/Edge, Firefox doesn't list the `posten://`/`bring://`
+   address as a request of its own, so filtering for `posten`/`bring` finds
+   nothing. Instead, click the **last request** in the list — the one right
+   before the page stops responding.
+6. In the details pane, open the **Headers** tab and scroll down to
+   **Response Headers**. The **Location** header there holds the full
+   `posten://…`/`bring://…` address — copy it in full, not the request's own
+   URL at the top of the panel.
 
 ## Safari
 
@@ -103,7 +107,10 @@ afterwards.
   "Preserve log"/"Persist Logs" was turned on *before* you submitted the
   sign-in form — otherwise the browser's normal page-navigation clears the
   network log the moment the redirect happens, and the failed request is
-  gone before you can scroll to it.
+  gone before you can scroll to it. On **Firefox** this is also expected: it
+  never shows `posten://`/`bring://` as a request of its own, so look at the
+  **Location** response header of the last request instead (see the Firefox
+  section above).
 - **The address I copied gets rejected by Home Assistant.** Paste the
   request URL exactly as shown, including the full query string
   (`?code=…&state=…`). A partial copy (e.g. missing the `code=` value) will
