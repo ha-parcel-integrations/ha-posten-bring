@@ -37,13 +37,17 @@ This repo follows it exactly.
   summary+diagnostic sensors. Add a new non-parcel sensor's unique_id to the set.
 - **Per-parcel sensors are removed by the summary sensor** via
   `entity_registry.async_remove` (self-removal races and leaves ghosts).
-- **If this carrier can reach `ParcelStatus.AT_PICKUP_POINT` from a real raw
-  status/code**, it needs an `awaiting_pickup` sensor — see *Parcel contract*
-  in `CONVENTIONS.md`. Say "pickup point", not "ServicePoint"/"parcel
-  shop"/"locker", for the generic concept. `ha-dhl-nl`, `ha-dpd`, `ha-gls`,
-  `ha-inpost` are reference implementations; `posten_bring`'s `collectable`
-  status reaches it too, so `PostenBringAwaitingPickupSensor` ships here from
-  the first release (see *Carrier-specific notes* below).
+- **The pickup-point summaries are a pair.** A carrier that can deliver to a
+  pickup point or locker exposes both `en_route_to_pickup_point` and
+  `awaiting_pickup`, even before a real parcel has shown the status or flag
+  (they read 0 until then; record it in `PENDING_*`). A carrier without pickup
+  points exposes neither and keeps `pickup` constantly False.
+  See *Parcel contract* in `CONVENTIONS.md`. Say "pickup point", not
+  "ServicePoint"/"parcel shop"/"locker", for the generic concept; the
+  example carrier demonstrates both canonical sensors.
+  `posten_bring`'s `collectable` status reaches it too, so
+  `PostenBringAwaitingPickupSensor` ships here from the first release (see
+  *Carrier-specific notes* below).
 
 ## Carrier-specific notes
 
@@ -128,10 +132,18 @@ carrier therefore never fires `parcel_status_changed` with
 (`examples/automations/notify_when_ready_for_pickup.yaml`) triggers on
 `at_pickup_point` instead, the closest "act on this today" equivalent.
 
-**`awaiting_pickup` sensor is present** — `collectable` does reach
-`ParcelStatus.AT_PICKUP_POINT` from a real raw status, so this carrier ships
-the suite's standard sensor (`PostenBringAwaitingPickupSensor`), unlike
-`out_for_delivery`/`problem` above.
+**Both pickup sensors are present** — `collectable` reaches
+`ParcelStatus.AT_PICKUP_POINT` from a real raw status, so the carrier ships
+`awaiting_pickup` and `en_route_to_pickup_point` (`out_for_delivery`/`problem`
+above stay unreachable). `pickup` is true when the payload carries a
+`pickupPoint` block, the `productName` starts with `pickup_parcel`, the status
+is `at_pickup_point`, or the events ever held `ready_for_pick_up`;
+`pickup_point` is the block's `name`, else `None`. Not yet seen on a real parcel: a `pickupPoint`
+block on a parcel that is still underway, and one on an archived collected
+parcel, so `en_route_to_pickup_point` reads 0 until a real parcel shows it and
+a collected parcel keeps `pickup` through its `ready_for_pick_up` event (mapped
+to `at_pickup_point` for this check only; `history[].status` stays `None`) but
+has no `pickup_point` unless the block survives.
 
 **Incoming and outgoing come from the same inbox call.** Unlike `ha-dhl-nl`
 (a second sent-shipments endpoint) this carrier's single
@@ -151,8 +163,18 @@ treat it as free text everywhere, including diagnostics.
 
 **Delivery window over date-only value.** `normalize_parcel` prefers
 `delivery.deliveryTime.deliveryWindow.{start,end}` and only falls back to the
-bare `delivery.deliveryTime.date` when no window is present — a date-only
-value can be local midnight encoded as UTC.
+bare `delivery.deliveryTime.date` when no window is present. That value is
+local midnight encoded as UTC, so it is converted to `Europe/Oslo` and its
+local day becomes `00:00:00`-`23:59:59`. A real parcel whose `date` carries a
+non-midnight time would still be read as that day. All three Nordic markets
+share one offset, so `Europe/Oslo` is the zone for every window.
+`planned_from`/`planned_to` follow the shared helpers in `parcels.py`
+(`planned_window`, `planned_for_status`, `is_pickup`) and are emptied at
+`at_pickup_point`, `returning` and `delivered`.
+
+**`delivered` is `status is DELIVERED` only.** `delivered_sender` maps to
+`returning` and stays active: whether it means back at the sender is
+unconfirmed, so no returned parcel counts as delivered.
 
 **Public tracking `url`** points at the keyless `sporing.posten.no/sporing/
 {parcelNumber}` page (never called by this integration itself, just linked)

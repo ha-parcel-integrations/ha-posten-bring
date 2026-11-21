@@ -34,6 +34,9 @@
       },
       "awaiting_pickup": {
         "default": "mdi:store-clock"
+      },
+      "en_route_to_pickup_point": {
+        "default": "mdi:truck-delivery"
       }
     }
   }

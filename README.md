@@ -39,7 +39,7 @@ see [Troubleshooting](#troubleshooting).
 
 - Auto-discovers every parcel on your Posten/Bring account — incoming and outgoing, no tracking codes to enter
 - Per-parcel sensor with the canonical status (`registered` / `in_transit` / `at_pickup_point` / `delivered` / `returning` / …), the carrier's own raw status, weight, dimensions, the expected delivery window and a public tracking link
-- Summary sensors: incoming parcels, next delivery, delivered parcels, outgoing parcels, outgoing delivered parcels, awaiting pickup
+- Summary sensors: incoming parcels, next delivery, delivered parcels, outgoing parcels, outgoing delivered parcels, awaiting pickup, en route to pickup point
 - Read-only **Deliveries** calendar with the expected delivery windows
 - Events + device triggers for no-code automations (registered, status changed, delivered, delivery time changed — plus the outgoing pair)
 - Opt-in per-parcel status history
@@ -124,6 +124,7 @@ Standard HA removal applies: **Settings → Devices & Services → Posten Bring 
 | `sensor.posten_bring_<account>_outgoing_parcels` | Number of active outgoing parcels (`direction: send`) |
 | `sensor.posten_bring_<account>_outgoing_delivered_parcels` | Recently delivered outgoing parcels |
 | `sensor.posten_bring_<account>_awaiting_pickup` | Parcels ready for collection at a pickup point |
+| `sensor.posten_bring_<account>_en_route_to_pickup_point` | Incoming parcels on their way to a pickup point that have not arrived yet |
 | `calendar.posten_bring_<account>_deliveries` | Read-only calendar of expected deliveries, no extra API calls |
 | `sensor.posten_bring_<account>_last_successful_update` | Diagnostic: when the account was last polled successfully |
 

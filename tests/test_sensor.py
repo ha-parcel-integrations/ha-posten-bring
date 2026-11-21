@@ -7,6 +7,7 @@ from custom_components.posten_bring.const import ParcelStatus
 from custom_components.posten_bring.sensor import (
     PostenBringAwaitingPickupSensor,
     PostenBringDeliveredParcelsSensor,
+    PostenBringEnRouteToPickupPointSensor,
     PostenBringIncomingParcelsSensor,
     PostenBringLastUpdateSensor,
     PostenBringNextDeliverySensor,
@@ -43,6 +44,7 @@ def _parcel(
     status: ParcelStatus = ParcelStatus.IN_TRANSIT,
     pickup: bool = False,
     planned_from: str | None = None,
+    planned_to: str | None = None,
 ) -> dict:
     return {
         "carrier": "Posten Bring",
@@ -52,6 +54,7 @@ def _parcel(
         "status": status,
         "pickup": pickup,
         "planned_from": planned_from,
+        "planned_to": planned_to,
     }
 
 
@@ -80,12 +83,12 @@ def test_parcel_sensor_missing_barcode():
 def test_next_delivery_picks_earliest():
     coordinator = _coordinator(
         [
-            _parcel("A", planned_from="2026-05-02T10:00:00Z"),
-            _parcel("B", planned_from="2026-05-01T10:00:00Z"),
+            _parcel("A", planned_from="2099-05-02T10:00:00Z"),
+            _parcel("B", planned_from="2099-05-01T10:00:00Z"),
         ]
     )
     sensor = PostenBringNextDeliverySensor(coordinator, _entry())
-    assert sensor.native_value == datetime(2026, 5, 1, 10, 0, tzinfo=UTC)
+    assert sensor.native_value == datetime(2099, 5, 1, 10, 0, tzinfo=UTC)
     assert sensor.extra_state_attributes["barcode"] == "B"
 
 
@@ -99,7 +102,7 @@ def test_next_delivery_skips_unparseable_moment():
     coordinator = _coordinator(
         [
             _parcel("A", planned_from="not-a-date"),
-            _parcel("B", planned_from="2026-05-01T10:00:00Z"),
+            _parcel("B", planned_from="2099-05-01T10:00:00Z"),
         ]
     )
     sensor = PostenBringNextDeliverySensor(coordinator, _entry())
@@ -158,3 +161,38 @@ def test_awaiting_pickup_counts_rerouted_parcel_without_pickup_flag():
     )
     assert sensor.native_value == 1
     assert sensor.extra_state_attributes["parcels"] == [rerouted]
+
+
+def test_next_delivery_skips_a_window_that_has_ended():
+    coordinator = _coordinator(
+        [
+            _parcel("OLD", planned_from="2000-01-01T10:00:00Z"),
+            _parcel(
+                "OLD-WINDOW",
+                planned_from="2000-01-01T10:00:00Z",
+                planned_to="2000-01-01T12:00:00Z",
+            ),
+            _parcel("NEXT", planned_from="2099-01-01T10:00:00Z"),
+        ]
+    )
+    sensor = PostenBringNextDeliverySensor(coordinator, _entry())
+    assert sensor.extra_state_attributes["barcode"] == "NEXT"
+
+
+def test_en_route_sensor_counts_pickup_parcels_not_yet_there():
+    en_route = _parcel("E", status=ParcelStatus.IN_TRANSIT)
+    en_route["pickup"] = True
+    arrived = _parcel("A", status=ParcelStatus.AT_PICKUP_POINT)
+    arrived["pickup"] = True
+    returning = _parcel("R", status=ParcelStatus.RETURNING)
+    returning["pickup"] = True
+    home = _parcel("H", status=ParcelStatus.IN_TRANSIT)
+    home["pickup"] = False
+    coordinator = _coordinator([en_route, arrived, returning, home])
+    sensor = PostenBringEnRouteToPickupPointSensor(coordinator, _entry())
+    assert sensor.native_value == 1
+    assert [p["barcode"] for p in sensor.extra_state_attributes["parcels"]] == ["E"]
+    awaiting = PostenBringAwaitingPickupSensor(coordinator, _entry())
+    assert not {p["barcode"] for p in sensor.extra_state_attributes["parcels"]} & {
+        p["barcode"] for p in awaiting.extra_state_attributes["parcels"]
+    }

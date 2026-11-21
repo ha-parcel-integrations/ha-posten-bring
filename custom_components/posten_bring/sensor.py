@@ -17,6 +17,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from . import PostenBringConfigEntry
 from .const import DOMAIN, ParcelStatus
@@ -58,6 +59,7 @@ async def async_setup_entry(
         f"{entry_id}_outgoing_parcels",
         f"{entry_id}_outgoing_delivered_parcels",
         f"{entry_id}_awaiting_pickup",
+        f"{entry_id}_en_route_to_pickup_point",
     }
     for entity_entry in er.async_entries_for_config_entry(registry, entry_id):
         if (
@@ -84,6 +86,7 @@ async def async_setup_entry(
     entities.append(PostenBringOutgoingParcelsSensor(coordinator, entry))
     entities.append(PostenBringOutgoingDeliveredParcelsSensor(coordinator, entry))
     entities.append(PostenBringAwaitingPickupSensor(coordinator, entry))
+    entities.append(PostenBringEnRouteToPickupPointSensor(coordinator, entry))
 
     async_add_entities(entities)
 
@@ -211,6 +214,7 @@ class PostenBringNextDeliverySensor(
 
     def _delivery_moments(self) -> list[tuple[datetime, dict]]:
         result: list[tuple[datetime, dict]] = []
+        now = dt_util.utcnow()
         for parcel in self.coordinator.data or []:
             moment = parse_iso(parcel.get("planned_from"))
             if moment is None:
@@ -218,6 +222,8 @@ class PostenBringNextDeliverySensor(
                     _LOGGER.debug(
                         "Could not parse delivery moment: %s", parcel["planned_from"]
                     )
+                continue
+            if (parse_iso(parcel.get("planned_to")) or moment) < now:
                 continue
             result.append((moment, parcel))
         return result
@@ -382,6 +388,43 @@ class PostenBringAwaitingPickupSensor(
     @property
     def native_value(self) -> int:
         """Return the number of parcels awaiting pickup."""
+        return len(self._pickup_parcels())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the extra state attributes."""
+        return {"parcels": self._pickup_parcels()}
+
+
+class PostenBringEnRouteToPickupPointSensor(
+    CoordinatorEntity[PostenBringCoordinator], SensorEntity
+):
+    """Active parcels destined for, but not yet at, a pickup point."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "en_route_to_pickup_point"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_attribution = ATTRIBUTION
+    _unrecorded_attributes = frozenset({"parcels"})
+
+    def __init__(self, coordinator: PostenBringCoordinator, entry: ConfigEntry) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_en_route_to_pickup_point"
+        self._attr_device_info = build_device_info(entry)
+
+    def _pickup_parcels(self) -> list[dict]:
+        return [
+            parcel
+            for parcel in (self.coordinator.data or [])
+            if parcel.get("pickup")
+            and parcel.get("status")
+            not in (ParcelStatus.AT_PICKUP_POINT, ParcelStatus.RETURNING)
+        ]
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of parcels on their way to a pickup point."""
         return len(self._pickup_parcels())
 
     @property

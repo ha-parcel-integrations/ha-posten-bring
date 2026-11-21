@@ -364,8 +364,8 @@ def test_normalize_falls_back_to_date_only_when_no_window():
     raw = active_parcel()
     raw["delivery"]["deliveryTime"] = {"date": "2026-04-29T00:00:00Z"}
     parcel = normalize_parcel(raw)
-    assert parcel["planned_from"] == "2026-04-29T00:00:00Z"
-    assert parcel["planned_to"] is None
+    assert parcel["planned_from"] == "2026-04-29T00:00:00+02:00"
+    assert parcel["planned_to"] == "2026-04-29T23:59:59+02:00"
 
 
 def test_normalize_prefers_window_over_bare_date_when_both_present():

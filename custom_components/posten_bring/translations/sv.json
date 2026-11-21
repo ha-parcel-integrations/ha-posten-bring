@@ -126,6 +126,10 @@
       "awaiting_pickup": {
         "name": "Redo för upphämtning",
         "unit_of_measurement": "paket"
+      },
+      "en_route_to_pickup_point": {
+        "name": "På väg till utlämningsställe",
+        "unit_of_measurement": "paket"
       }
     }
   }
