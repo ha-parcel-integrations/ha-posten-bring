@@ -33,6 +33,7 @@ from .const import (
     STAGGER_MINUTES,
     ParcelStatus,
 )
+from .contents import ContentsStore, normalize_code
 from .parcels import (
     DIRECTION_OUTGOING,
     apply_delivered_filter,
@@ -133,6 +134,10 @@ class PostenBringCoordinator(DataUpdateCoordinator[list[dict]]):
             update_interval=timedelta(minutes=HOT_INTERVAL_MINUTES),
         )
         self._client = client
+        self.contents_store = ContentsStore(hass, entry.entry_id)
+        # Every code the account lists, delivered ones past the retention filter
+        # included: update_contents asks which account a code belongs to.
+        self.known_codes: frozenset[str] = frozenset()
         self.delivered: list[dict] = []
         self.outgoing: list[dict] = []
         self.delivered_outgoing: list[dict] = []
@@ -146,6 +151,14 @@ class PostenBringCoordinator(DataUpdateCoordinator[list[dict]]):
         self._known_outgoing_state: dict[str, ParcelStatus] | None = None
         self._cached_device_id: str | None = None
         self.last_success_time: datetime | None = None
+
+    def _apply_contents(self, parcel: dict) -> dict:
+        """Put the user's own contents text over the carrier's, when there is one."""
+        barcode = parcel.get("barcode")
+        user_value = self.contents_store.get(barcode) if barcode else None
+        if user_value is not None:
+            parcel["contents"] = user_value
+        return parcel
 
     @property
     def current_tier_minutes(self) -> int | None:
@@ -226,7 +239,7 @@ class PostenBringCoordinator(DataUpdateCoordinator[list[dict]]):
         outgoing_raw = [r for r in raws if parcel_direction(r) == DIRECTION_OUTGOING]
 
         normalized = [
-            normalize_parcel(raw, include_history=include_history)
+            self._apply_contents(normalize_parcel(raw, include_history=include_history))
             for raw in incoming_raw
         ]
         active = [parcel for parcel in normalized if not parcel["delivered"]]
@@ -253,7 +266,7 @@ class PostenBringCoordinator(DataUpdateCoordinator[list[dict]]):
         }
 
         normalized_outgoing = [
-            normalize_parcel(raw, include_history=include_history)
+            self._apply_contents(normalize_parcel(raw, include_history=include_history))
             for raw in outgoing_raw
         ]
         outgoing_active = [p for p in normalized_outgoing if not p["delivered"]]
@@ -266,6 +279,11 @@ class PostenBringCoordinator(DataUpdateCoordinator[list[dict]]):
         )
         self.outgoing = sort_parcels_by_ts(outgoing_active, "planned_from")
         outgoing_all = self.outgoing + delivered_outgoing_sorted
+        self.known_codes = frozenset(
+            normalize_code(parcel["barcode"])
+            for parcel in incoming + outgoing_all
+            if parcel.get("barcode")
+        )
         self._fire_outgoing_change_events(outgoing_all)
         self._known_outgoing_state = {
             parcel["barcode"]: parcel["status"]

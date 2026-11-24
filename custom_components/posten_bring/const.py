@@ -32,7 +32,15 @@ PLATFORMS = [Platform.BUTTON, Platform.CALENDAR, Platform.SENSOR]
 # Every optional key the parcel contract defines. CAPABILITIES below must be a
 # subset of this.
 KNOWN_CAPABILITIES = frozenset(
-    {"weight", "dimensions", "delivery_window", "pickup_point", "url", "history"}
+    {
+        "weight",
+        "dimensions",
+        "delivery_window",
+        "pickup_point",
+        "url",
+        "history",
+        "contents",
+    }
 )
 
 # Posten Bring's inbox reports weight/dimensions, a delivery window, a pickup
@@ -186,3 +194,8 @@ NEW_ISSUE_URL = (
     "https://github.com/ha-parcel-integrations/ha-posten-bring/issues/new"
     "?template=unrecognised_status.yml"
 )
+
+# The user-set parcel contents, and the tracking code the contents action is keyed on.
+CONF_CONTENTS = "contents"
+CONF_TRACKING_CODE = "tracking_code"
+CONF_CONFIG_ENTRY_ID = "config_entry_id"

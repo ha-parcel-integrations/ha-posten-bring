@@ -38,6 +38,7 @@ async def test_diagnostics_redacts_and_counts(hass):
             "barcode": "PB123456789NO",
             "sender": "Example Shop",
             "receiver": "Jane Doe",
+            "contents": "Running shoes",
             "status": "in_transit",
             "raw": {
                 "parcelNumber": "PB123456789NO",
@@ -63,6 +64,7 @@ async def test_diagnostics_redacts_and_counts(hass):
     # PII is redacted, at every nesting level
     assert result["incoming"][0]["barcode"] == "**REDACTED**"
     assert result["incoming"][0]["receiver"] == "**REDACTED**"
+    assert result["incoming"][0]["contents"] == "**REDACTED**"
     assert result["incoming"][0]["raw"]["recipient"] == "**REDACTED**"
     # non-identifying fields survive, or the diagnostics would be useless
     assert result["incoming"][0]["status"] == "in_transit"

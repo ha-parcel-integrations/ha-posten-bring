@@ -27,6 +27,7 @@ see [Troubleshooting](#troubleshooting).
 - [Sensors](#sensors)
 - [Parcel status reference](#parcel-status-reference)
 - [Events](#events)
+- [Services](#services)
 - [Examples](#examples)
 - [Debugging](#debugging)
 - [Troubleshooting](#troubleshooting)
@@ -43,6 +44,7 @@ see [Troubleshooting](#troubleshooting).
 - Read-only **Deliveries** calendar with the expected delivery windows
 - Events + device triggers for no-code automations (registered, status changed, delivered, delivery time changed — plus the outgoing pair)
 - Opt-in per-parcel status history
+- A note on what is in a parcel, set with `posten_bring.update_contents`; it titles the calendar event and shows on the next-delivery sensor
 - Manual refresh button and a diagnostic last-update sensor
 
 ## Requirements
@@ -163,6 +165,16 @@ The integration fires these on the event bus (also available as device triggers 
 | `posten_bring_outgoing_parcel_delivered` | An outgoing parcel is delivered |
 
 Every payload is the full normalised parcel plus the hub's `device_id`. Events are suppressed on the first refresh after start-up.
+
+## Services
+
+| Service | Fields | Description |
+|---|---|---|
+| `posten_bring.update_contents` | `tracking_code`, `contents`, `config_entry_id` (optional) | Set, replace or clear (empty text) a note on what is in a parcel |
+
+Parcels come from your account, so there is no service to track one. With several accounts the note goes to every account that lists the code; set `config_entry_id` to pick one, which is also needed for a code no account lists yet.
+
+The `contents` text is stored locally, never sent to Posten Bring, and fills the parcel's `contents` field; it titles the parcel's calendar event and shows on the next-delivery sensor.
 
 ## Examples
 

@@ -132,5 +132,30 @@
         "unit_of_measurement": "pakker"
       }
     }
+  },
+  "services": {
+    "update_contents": {
+      "name": "Oppdater pakkens innhold",
+      "description": "Angi med dine egne ord hva som er i en pakke, for et sporingsnummer. En tom tekst fjerner innholdet.",
+      "fields": {
+        "tracking_code": {
+          "name": "Sporingsnummer",
+          "description": "Pakkens sporingsnummer."
+        },
+        "contents": {
+          "name": "Innhold",
+          "description": "Hva som er i pakken, med dine egne ord. En tom tekst fjerner det."
+        },
+        "config_entry_id": {
+          "name": "Konto",
+          "description": "Kontoen verdien lagres for. Kreves når ingen konto kjenner koden ennå."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "update_contents_entry_required": {
+      "message": "Ingen konto kjenner denne koden. Velg kontoen den skal lagres for."
+    }
   }
 }

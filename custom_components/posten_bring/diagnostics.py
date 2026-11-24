@@ -20,6 +20,7 @@ TO_REDACT = {
     "barcode",
     "sender",
     "receiver",
+    "contents",
     "url",
     "pickup_point",
     # OAuth credential fields — never leave this file even redacted-adjacent

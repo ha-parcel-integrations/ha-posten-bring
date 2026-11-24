@@ -1,0 +1,359 @@
+"""Tests for the contents action and the store lifecycle."""
+
+from datetime import timedelta
+from unittest.mock import AsyncMock, patch
+
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.exceptions import ServiceValidationError
+from homeassistant.util import dt as dt_util
+import pytest
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
+
+from custom_components.posten_bring.const import (
+    CONF_BRAND,
+    CONF_REFRESH_TOKEN,
+    CONF_TRACKING_CODE,
+    DOMAIN,
+)
+from custom_components.posten_bring.coordinator import PostenBringCoordinator
+
+from .payloads import (
+    ACTIVE_NUMBER,
+    ARCHIVED_DELIVERED_NUMBER,
+    OUTGOING_NUMBER,
+    active_parcel,
+    archived_delivered_parcel,
+    outgoing_parcel,
+)
+
+CLIENT = "custom_components.posten_bring.api.PostenBringApiClient"
+REFRESH = f"{PostenBringCoordinator.__module__}.PostenBringCoordinator"
+ACTIVE_CODE = ACTIVE_NUMBER
+DELIVERED_CODE = ARCHIVED_DELIVERED_NUMBER
+UNTRACKED = "PB555000000NO"
+STORE_KEY = f"{DOMAIN}.contents.%s"
+
+
+def _config_entry(title: str = "Bring") -> MockConfigEntry:
+    return MockConfigEntry(
+        domain=DOMAIN,
+        title=title,
+        unique_id=title,
+        data={CONF_BRAND: "bring", CONF_REFRESH_TOKEN: "the-refresh-token"},
+    )
+
+
+async def _setup(
+    hass, entry: MockConfigEntry | None = None, parcels: list[dict] | None = None
+) -> MockConfigEntry:
+    entry = entry or _config_entry()
+    parcels = [active_parcel()] if parcels is None else parcels
+    entry.add_to_hass(hass)
+    with patch(f"{CLIENT}.async_get_parcels", new=AsyncMock(return_value=parcels)):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    return entry
+
+
+async def _call(hass, data: dict) -> None:
+    with patch(
+        f"{CLIENT}.async_get_parcels", new=AsyncMock(return_value=[active_parcel()])
+    ):
+        await hass.services.async_call(DOMAIN, "update_contents", data, blocking=True)
+        await hass.async_block_till_done()
+        # A refresh requested inside the debouncer's cooldown runs after it.
+        async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=30))
+        await hass.async_block_till_done()
+
+
+def _contents(entry: MockConfigEntry, code: str) -> str | None:
+    parcels = {p["barcode"]: p for p in entry.runtime_data.coordinator.data}
+    return parcels[code]["contents"]
+
+
+async def test_a_parcel_has_no_contents_without_a_stored_value(hass):
+    entry = await _setup(hass)
+    assert _contents(entry, ACTIVE_CODE) is None
+
+
+async def test_update_contents_sets_replaces_and_clears(hass):
+    entry = await _setup(hass)
+
+    await _call(hass, {CONF_TRACKING_CODE: ACTIVE_CODE, "contents": " Running  shoes "})
+    assert _contents(entry, ACTIVE_CODE) == "Running shoes"
+
+    await _call(hass, {CONF_TRACKING_CODE: ACTIVE_CODE, "contents": "Winter socks"})
+    assert _contents(entry, ACTIVE_CODE) == "Winter socks"
+
+    await _call(hass, {CONF_TRACKING_CODE: ACTIVE_CODE, "contents": "  "})
+    assert _contents(entry, ACTIVE_CODE) is None
+
+
+async def test_update_contents_without_text_clears(hass):
+    entry = await _setup(hass)
+    await _call(hass, {CONF_TRACKING_CODE: ACTIVE_CODE, "contents": "Running shoes"})
+
+    await _call(hass, {CONF_TRACKING_CODE: ACTIVE_CODE})
+
+    assert _contents(entry, ACTIVE_CODE) is None
+
+
+async def test_update_contents_normalizes_the_code(hass):
+    entry = await _setup(hass)
+    await _call(
+        hass, {CONF_TRACKING_CODE: f" {ACTIVE_CODE.lower()} ", "contents": "Shoes"}
+    )
+    assert _contents(entry, ACTIVE_CODE) == "Shoes"
+
+
+async def test_update_contents_works_for_a_parcel_not_in_the_account_yet(hass):
+    entry = await _setup(hass)
+    await _call(hass, {CONF_TRACKING_CODE: UNTRACKED, "contents": "Running shoes"})
+
+    assert entry.runtime_data.coordinator.contents_store.get(UNTRACKED) == (
+        "Running shoes"
+    )
+
+
+async def test_update_contents_refreshes_only_when_something_changed(hass):
+    await _setup(hass)
+    data = {CONF_TRACKING_CODE: ACTIVE_CODE, "contents": "Running shoes"}
+    with patch(f"{REFRESH}.async_request_refresh", new=AsyncMock()) as refresh:
+        await _call(hass, data)
+        assert refresh.await_count == 1
+        await _call(hass, data)
+        assert refresh.await_count == 1
+        await _call(hass, {CONF_TRACKING_CODE: UNTRACKED})
+        assert refresh.await_count == 1
+
+
+async def test_update_contents_rejects_an_empty_code(hass):
+    await _setup(hass)
+    with pytest.raises(ServiceValidationError):
+        await _call(hass, {CONF_TRACKING_CODE: "  "})
+
+
+async def test_update_contents_needs_a_loaded_entry(hass):
+    entry = await _setup(hass)
+    entry.mock_state(hass, ConfigEntryState.SETUP_RETRY)
+    try:
+        with pytest.raises(ServiceValidationError):
+            await _call(hass, {CONF_TRACKING_CODE: ACTIVE_CODE, "contents": "Shoes"})
+    finally:
+        entry.mock_state(hass, ConfigEntryState.LOADED)
+
+
+async def test_the_action_goes_with_the_last_loaded_account(hass):
+    first = await _setup(hass)
+    second = await _setup(hass, _config_entry("Posten"))
+
+    assert await hass.config_entries.async_unload(first.entry_id)
+    assert hass.services.has_service(DOMAIN, "update_contents")
+
+    assert await hass.config_entries.async_unload(second.entry_id)
+    assert not hass.services.has_service(DOMAIN, "update_contents")
+
+
+async def test_a_stored_value_survives_a_restart_of_the_entry(hass, hass_storage):
+    entry = await _setup(hass)
+    await _call(hass, {CONF_TRACKING_CODE: ACTIVE_CODE, "contents": "Running shoes"})
+    store = entry.runtime_data.coordinator.contents_store
+    await store._store.async_save(store._data_to_save())
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await _setup_again(hass, entry)
+
+    assert _contents(entry, ACTIVE_CODE) == "Running shoes"
+
+
+async def _setup_again(hass, entry: MockConfigEntry) -> None:
+    with patch(
+        f"{CLIENT}.async_get_parcels", new=AsyncMock(return_value=[active_parcel()])
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+
+async def test_removing_the_entry_removes_its_store(hass, hass_storage):
+    entry = await _setup(hass)
+    await _call(hass, {CONF_TRACKING_CODE: ACTIVE_CODE, "contents": "Running shoes"})
+    store = entry.runtime_data.coordinator.contents_store
+    await store._store.async_save(store._data_to_save())
+    key = STORE_KEY % entry.entry_id
+    assert key in hass_storage
+
+    await hass.config_entries.async_remove(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert key not in hass_storage
+
+
+async def test_a_contents_change_alone_fires_no_event(hass):
+    await _setup(hass)
+    events = []
+    for name in ("registered", "status_changed", "delivered"):
+        hass.bus.async_listen(f"{DOMAIN}_parcel_{name}", events.append)
+
+    await _call(hass, {CONF_TRACKING_CODE: ACTIVE_CODE, "contents": "Running shoes"})
+
+    assert events == []
+
+
+OTHER_CODE = OUTGOING_NUMBER
+
+
+def _stored(entry: MockConfigEntry, code: str) -> str | None:
+    return entry.runtime_data.coordinator.contents_store.get(code)
+
+
+async def _two_accounts(hass, first_parcels, second_parcels):
+    first = await _setup(hass, parcels=first_parcels)
+    second = await _setup(hass, _config_entry("Posten"), second_parcels)
+    return first, second
+
+
+async def _call_quiet(hass, data: dict) -> AsyncMock:
+    with patch(f"{REFRESH}.async_request_refresh", new=AsyncMock()) as refresh:
+        await hass.services.async_call(DOMAIN, "update_contents", data, blocking=True)
+        await hass.async_block_till_done()
+    return refresh
+
+
+async def test_several_accounts_store_in_the_one_that_lists_the_code(hass):
+    first, second = await _two_accounts(
+        hass, [active_parcel()], [outgoing_parcel(OTHER_CODE)]
+    )
+
+    refresh = await _call_quiet(
+        hass, {CONF_TRACKING_CODE: OTHER_CODE, "contents": "Shoes"}
+    )
+
+    assert _stored(first, OTHER_CODE) is None
+    assert _stored(second, OTHER_CODE) == "Shoes"
+    assert refresh.await_count == 1
+
+
+async def test_several_accounts_find_a_delivered_parcel(hass):
+    first, second = await _two_accounts(
+        hass, [active_parcel()], [archived_delivered_parcel()]
+    )
+
+    await _call_quiet(hass, {CONF_TRACKING_CODE: DELIVERED_CODE, "contents": "Shoes"})
+
+    assert _stored(first, DELIVERED_CODE) is None
+    assert _stored(second, DELIVERED_CODE) == "Shoes"
+
+
+async def test_a_code_in_two_accounts_is_stored_in_both(hass):
+    first, second = await _two_accounts(hass, [active_parcel()], [active_parcel()])
+
+    refresh = await _call_quiet(
+        hass, {CONF_TRACKING_CODE: ACTIVE_CODE, "contents": "Shoes"}
+    )
+
+    assert _stored(first, ACTIVE_CODE) == "Shoes"
+    assert _stored(second, ACTIVE_CODE) == "Shoes"
+    assert refresh.await_count == 2
+
+
+async def test_several_accounts_refresh_only_where_the_value_changed(hass):
+    first, second = await _two_accounts(hass, [active_parcel()], [active_parcel()])
+    first.runtime_data.coordinator.contents_store.async_set(ACTIVE_CODE, "Shoes")
+
+    refresh = await _call_quiet(
+        hass, {CONF_TRACKING_CODE: ACTIVE_CODE, "contents": "Shoes"}
+    )
+
+    assert _stored(second, ACTIVE_CODE) == "Shoes"
+    assert refresh.await_count == 1
+
+
+async def test_an_unknown_code_with_several_accounts_needs_an_account(hass):
+    first, second = await _two_accounts(hass, [active_parcel()], [active_parcel()])
+
+    with pytest.raises(ServiceValidationError) as raised:
+        await _call_quiet(hass, {CONF_TRACKING_CODE: UNTRACKED, "contents": "Shoes"})
+
+    assert raised.value.translation_key == "update_contents_entry_required"
+    assert _stored(first, UNTRACKED) is None
+    assert _stored(second, UNTRACKED) is None
+
+
+async def test_a_named_account_stores_even_an_unknown_code(hass):
+    first, second = await _two_accounts(hass, [active_parcel()], [active_parcel()])
+
+    await _call_quiet(
+        hass,
+        {
+            CONF_TRACKING_CODE: UNTRACKED,
+            "contents": "Shoes",
+            "config_entry_id": second.entry_id,
+        },
+    )
+
+    assert _stored(first, UNTRACKED) is None
+    assert _stored(second, UNTRACKED) == "Shoes"
+
+
+async def test_a_named_account_limits_a_code_both_accounts_list(hass):
+    first, second = await _two_accounts(hass, [active_parcel()], [active_parcel()])
+
+    await _call_quiet(
+        hass,
+        {
+            CONF_TRACKING_CODE: ACTIVE_CODE,
+            "contents": "Shoes",
+            "config_entry_id": first.entry_id,
+        },
+    )
+
+    assert _stored(first, ACTIVE_CODE) == "Shoes"
+    assert _stored(second, ACTIVE_CODE) is None
+
+
+async def test_a_named_account_that_is_not_loaded_is_refused(hass):
+    await _setup(hass)
+
+    with pytest.raises(ServiceValidationError):
+        await _call_quiet(
+            hass,
+            {
+                CONF_TRACKING_CODE: ACTIVE_CODE,
+                "contents": "Shoes",
+                "config_entry_id": "nope",
+            },
+        )
+
+
+async def test_a_single_account_stores_an_unknown_code_without_naming_it(hass):
+    entry = await _setup(hass)
+
+    await _call_quiet(hass, {CONF_TRACKING_CODE: UNTRACKED, "contents": "Shoes"})
+
+    assert _stored(entry, UNTRACKED) == "Shoes"
+
+
+async def test_an_entry_without_a_stored_file_starts_with_no_contents(
+    hass, hass_storage
+):
+    assert not hass_storage
+    entry = await _setup(hass)
+
+    assert _contents(entry, ACTIVE_CODE) is None
+    assert _stored(entry, ACTIVE_CODE) is None
+
+
+async def test_contents_reach_outgoing_parcels_too(hass):
+    entry = await _setup(hass, parcels=[active_parcel(), outgoing_parcel()])
+
+    await _call_quiet(hass, {CONF_TRACKING_CODE: OUTGOING_NUMBER, "contents": "Books"})
+    with patch(
+        f"{CLIENT}.async_get_parcels",
+        new=AsyncMock(return_value=[active_parcel(), outgoing_parcel()]),
+    ):
+        await entry.runtime_data.coordinator.async_refresh()
+
+    assert [p["contents"] for p in entry.runtime_data.coordinator.outgoing] == ["Books"]

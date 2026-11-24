@@ -6,13 +6,15 @@ from dataclasses import dataclass
 import logging
 
 import aiohttp
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import PostenBringApiClient, PostenBringSession
-from .const import CONF_BRAND, CONF_REFRESH_TOKEN, PLATFORMS
+from .const import CONF_BRAND, CONF_REFRESH_TOKEN, DOMAIN, PLATFORMS
+from .contents import ContentsStore
 from .coordinator import PostenBringCoordinator
+from .services import async_setup_services, async_unload_services
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,6 +61,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: PostenBringConfigEntry) 
     )
     client = PostenBringApiClient(session, oauth_session)
     coordinator = PostenBringCoordinator(hass, client, entry)
+    await coordinator.contents_store.async_load()
 
     try:
         # Fetch initial data here, before forwarding to platforms. Raising
@@ -87,6 +90,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: PostenBringConfigEntry) 
         await session.close()
         raise
 
+    async_setup_services(hass)
+
     # No entry.add_update_listener: the options flow is an
     # OptionsFlowWithReload, which may not be combined with one.
     return True
@@ -98,5 +103,19 @@ async def async_unload_entry(
     """Unload a Posten Bring config entry."""
     if await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         await entry.runtime_data.session.close()
+        # The services are shared by every account, so they go with the last one.
+        if not any(
+            other.state is ConfigEntryState.LOADED
+            for other in hass.config_entries.async_entries(DOMAIN)
+            if other.entry_id != entry.entry_id
+        ):
+            async_unload_services(hass)
         return True
     return False
+
+
+async def async_remove_entry(
+    hass: HomeAssistant, entry: PostenBringConfigEntry
+) -> None:
+    """Delete the contents the user set for the removed entry."""
+    await ContentsStore(hass, entry.entry_id).async_remove()
