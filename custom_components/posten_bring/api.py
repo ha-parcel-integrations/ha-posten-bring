@@ -43,6 +43,7 @@ from .const import (
     INBOX_LOOKBACK_DAYS,
     INBOX_MAX_PAGES,
     INBOX_URL,
+    LOGIN_APP_VERSION,
     REQUEST_TIMEOUT_SECONDS,
     TOKEN_HEADERS,
     TOKEN_PATH,
@@ -74,6 +75,10 @@ def build_authorization_url(brand: str, state: str, *, language: str = "en") -> 
         "response_type": "code",
         "client_id": config["client_id"],
         "redirect_uri": config["redirect_uri"],
+        # Without a recent app version Postenid serves its v1 login page,
+        # whose SMS two-factor step answers 403 for some accounts.
+        "platform": "Android",
+        "app_version": LOGIN_APP_VERSION,
         "state": state,
         "lang": language,
         "is_app": "true",

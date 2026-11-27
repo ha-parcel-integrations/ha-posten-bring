@@ -12,9 +12,7 @@
 A custom Home Assistant integration that tracks your **Posten** or **Bring**
 parcels via your own consumer account — both incoming and outgoing. No
 tracking codes to enter: every parcel on your account shows up automatically.
-Confirmed working for **Norway and Sweden**; Denmark is expected to work the
-same way (same shared account backend) but not yet independently confirmed —
-see [Troubleshooting](#troubleshooting).
+Confirmed working for **Norway, Sweden and Denmark**.
 
 ## Contents
 
@@ -50,7 +48,7 @@ see [Troubleshooting](#troubleshooting).
 ## Requirements
 
 - Home Assistant 2025.12 or newer
-- Your own **Posten** or **Bring** consumer account (Vipps or phone-number login) — Posten Bring is active in **Norway, Sweden and Denmark** (confirmed for Norway and Sweden; Denmark is expected but not yet independently confirmed). Not Finland: Bring is no longer active there.
+- Your own **Posten** or **Bring** consumer account (Vipps or phone-number login) — Posten Bring is active in **Norway, Sweden and Denmark**. Not Finland: Bring is no longer active there.
 - A desktop browser with developer tools, to complete the one-time sign-in (see [Configuration](#configuration))
 
 ## Installation
@@ -200,7 +198,8 @@ logger:
 - **The setup form never shows a working redirect.** Make sure you complete the sign-in in a desktop browser with developer tools open and "preserve log" enabled *before* submitting the login form — see [docs/finding-the-redirect-url.md](docs/finding-the-redirect-url.md).
 - **"That doesn't look like a valid redirect URL".** Paste the complete address, including `?code=…&state=…`. The code is single-use and short-lived — if it's been a few minutes, redo the sign-in.
 - **A status logs "Unrecognised Posten Bring status"** — please [open an issue](https://github.com/ha-parcel-integrations/ha-posten-bring/issues/new?template=unrecognised_status.yml) with the logged line so the mapping can be extended.
-- **Using a Danish account.** Posten Bring's shared inbox has been confirmed to return Norwegian and Swedish accounts' own parcels; Danish coverage hasn't been independently tested yet. If it doesn't show your parcels, please [open an issue](https://github.com/ha-parcel-integrations/ha-posten-bring/issues/new) — that's exactly the report this needs.
+- **The two-factor page says an SMS was sent, but none arrives.** Older versions of this integration opened an older Posten Bring login page whose SMS step fails for some accounts. Update the integration and start the setup again.
+- **After the "Confirm e-mail address" step nothing seems to happen.** The sign-in has already finished — click **Continue** once and look for the redirect in the Network tab. A second click fails with "Authorization code has been issued before".
 
 ## Related integrations
 

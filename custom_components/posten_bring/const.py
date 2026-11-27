@@ -59,6 +59,7 @@ CAPABILITIES = frozenset(
 
 AUTHORIZE_PATH = "/api/oauth/authorizations/new"
 TOKEN_PATH = "/api/oauth/accesstoken"
+LOGIN_APP_VERSION = "8.5.1"
 
 BRANDS: dict[str, dict[str, str]] = {
     "posten": {

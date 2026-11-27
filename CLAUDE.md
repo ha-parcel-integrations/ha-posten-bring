@@ -68,6 +68,11 @@ redirect their browser could not open — the same browser-paste shape as
   instead, using the per-brand pair in `const.py`'s `BRANDS`. This is a
   one-carrier exception: do not extract the pattern into the template or
   reuse it for another carrier.
+- **The authorize URL carries `platform=Android&app_version=<LOGIN_APP_VERSION>`.**
+  Without a recent app version Postenid serves its v1 login page, whose SMS
+  two-factor step answers 403 and never sends the code (seen on a Danish
+  account, #9). The v2 page adds a "Confirm e-mail address" step after the SMS
+  code. If logins break again after an app update, raise `LOGIN_APP_VERSION`.
 - **Brand picker, not a country picker.** Posten and Bring are one backend
   API with two registered OAuth clients and two redirect schemes; the first
   config-flow step only picks which client/redirect scheme to use

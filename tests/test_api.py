@@ -16,7 +16,7 @@ from custom_components.posten_bring.api import (
     build_authorization_url,
     parse_redirect_url,
 )
-from custom_components.posten_bring.const import BRANDS
+from custom_components.posten_bring.const import BRANDS, LOGIN_APP_VERSION
 
 from .payloads import active_parcel, inbox_page, outgoing_parcel
 
@@ -64,6 +64,12 @@ def test_build_authorization_url_uses_the_brands_own_client():
     assert "state=the-state" in url
     assert "code_challenge" not in url
     assert "code_verifier" not in url
+
+
+def test_build_authorization_url_requests_the_v2_login_page():
+    url = build_authorization_url("posten", "the-state")
+    assert "platform=Android" in url
+    assert f"app_version={LOGIN_APP_VERSION}" in url
 
 
 def test_parse_redirect_url_extracts_code_and_state():

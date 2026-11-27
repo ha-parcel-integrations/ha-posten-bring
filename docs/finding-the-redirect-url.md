@@ -13,15 +13,21 @@ This only has to be done once per login (or once per reauth, if it's ever
 needed). The general idea is the same in every browser:
 
 1. Open your browser's developer tools and switch to the **Network** tab
-   *before* you finish signing in.
+   *before* you open the sign-in link. If you're still signed in at
+   Posten/Bring from an earlier attempt, the link skips the whole sign-in and
+   redirects straight away, leaving a blank tab.
 2. Turn on **"preserve log"** (the exact wording differs per browser — see
    below) so the failed request doesn't get cleared if the page reloads or
    redirects.
-3. Complete the sign-in normally (Vipps or phone number, and any
-   second-factor step you have enabled).
+3. Complete the sign-in normally (Vipps or phone number, the SMS code, and
+   the **Confirm e-mail address** step if it's shown). Click **Continue** on
+   the last step **once**: the button turns grey and the page seems to do
+   nothing, but the redirect has already happened.
 4. When the page fails to continue, look through the Network tab's request
-   list for one whose **name/URL starts with `posten://` or `bring://`**
-   (matching whichever brand you picked in Home Assistant).
+   list for the redirect. Its **full URL starts with `posten://` or
+   `bring://`** (matching whichever brand you picked in Home Assistant), but
+   Chrome and Edge list it by name as `login?state=…` with status
+   *(canceled)*, so filter on `code=` to find it.
 5. Copy that request's **full URL** — not just its name as shown in the
    list, the complete address including everything after `?code=`.
 6. Paste that whole address into the Home Assistant setup form.
@@ -37,14 +43,12 @@ The sections below show exactly where to click for each browser.
    if it isn't already red/active (it usually is by default).
 4. Check the **"Preserve log"** checkbox, near the top of the Network panel.
 5. Go back to the page and complete the sign-in.
-6. When the flow stops/errors, look at the request list in the Network panel.
-   The failing request's **Name** column shows the start of a URL — look for
-   one beginning with `posten:` or `bring:`. You can also type that into the
-   **Filter** box above the list to find it instantly.
-7. Click that request to select it. In the panel that opens on the right,
-   the **Headers** tab shows a **General** section with **Request URL** —
-   that is the full address you need. Click it once to select the text (or
-   use the small copy icon Chrome shows on hover) and copy it in full.
+6. When the flow stops/errors, type `code=` into the **Filter** box above
+   the request list. The redirect shows up as `login?state=…` with status
+   *(canceled)*.
+7. Right-click that request → **Copy → Copy URL**. That gives the full
+   `posten://…`/`bring://…` address you need. (Alternatively click it and
+   copy **Request URL** under **Headers → General**.)
 
 ## Microsoft Edge
 
@@ -54,9 +58,9 @@ Edge uses the same Chromium DevTools as Chrome, so the steps are identical:
 2. Open the **Network** tab.
 3. Enable **"Preserve log"**.
 4. Complete the sign-in.
-5. Filter for `posten` or `bring` in the request list, click the matching
-   request.
-6. Under **Headers → General → Request URL**, copy the full address.
+5. Filter for `code=` in the request list; the redirect shows up as
+   `login?state=…` with status *(canceled)*.
+6. Right-click it → **Copy → Copy URL** to copy the full address.
 
 ## Mozilla Firefox
 
@@ -103,7 +107,9 @@ afterwards.
 
 ## Troubleshooting
 
-- **I don't see any request starting with `posten:`/`bring:`.** Make sure
+- **I don't see the redirect request.** In Chrome/Edge it's listed as
+  `login?state=…` *(canceled)*, not as `posten:`/`bring:` — filter on `code=`.
+  Also make sure
   "Preserve log"/"Persist Logs" was turned on *before* you submitted the
   sign-in form — otherwise the browser's normal page-navigation clears the
   network log the moment the redirect happens, and the failed request is
@@ -111,6 +117,10 @@ afterwards.
   never shows `posten://`/`bring://` as a request of its own, so look at the
   **Location** response header of the last request instead (see the Firefox
   section above).
+- **"Authorization code has been issued before".** You clicked **Continue**
+  on the last step a second time. The first click already finished the
+  sign-in — find that redirect in the Network tab, or open the sign-in link
+  again for a fresh one.
 - **The address I copied gets rejected by Home Assistant.** Paste the
   request URL exactly as shown, including the full query string
   (`?code=…&state=…`). A partial copy (e.g. missing the `code=` value) will
